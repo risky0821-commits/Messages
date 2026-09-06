@@ -96,22 +96,28 @@ class ConversationsAdapter(
         ensureBackgroundThread {
             val categories = activity.categoriesDB.getCategories()
             activity.runOnUiThread {
-                if (categories.isEmpty()) {
-                    return@runOnUiThread
-                }
+                val labels = ArrayList<String>().apply {
+                    add(activity.getString(R.string.no_category))
+                    addAll(categories.map { it.name })
+                }.toTypedArray()
 
-                val labels = categories.map { it.name }.toTypedArray()
                 AlertDialog.Builder(activity)
                     .setTitle(R.string.move_to_category)
                     .setItems(labels) { _, which ->
-                        val category = categories[which]
                         val conversations = getSelectedItems()
                         ensureBackgroundThread {
-                            conversations.forEach { conversation ->
-                                activity.categoriesDB.moveConversationToCategory(
-                                    categoryId = category.id,
-                                    threadId = conversation.threadId,
-                                )
+                            if (which == 0) {
+                                conversations.forEach { conversation ->
+                                    activity.categoriesDB.removeConversationFromAllCategories(conversation.threadId)
+                                }
+                            } else {
+                                val category = categories[which - 1]
+                                conversations.forEach { conversation ->
+                                    activity.categoriesDB.moveConversationToCategory(
+                                        categoryId = category.id,
+                                        threadId = conversation.threadId,
+                                    )
+                                }
                             }
                             refreshConversationsAndFinishActMode()
                         }
@@ -243,6 +249,7 @@ class ConversationsAdapter(
         val conversationsToRemove =
             currentList.filter { selectedKeys.contains(it.hashCode()) } as ArrayList<Conversation>
         conversationsToRemove.forEach {
+            activity.categoriesDB.removeConversationFromAllCategories(it.threadId)
             activity.deleteConversation(it.threadId)
             activity.notificationManager.cancel(it.threadId.hashCode())
         }
