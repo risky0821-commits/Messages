@@ -70,10 +70,10 @@ class CategoryTabsView @JvmOverloads constructor(
 
     fun refreshTabsAndList() {
         ensureBackgroundThread {
-            val categories = categoriesDB.getCategories()
-            val unread = getCategoryUnreadCounts()
-            val totalUnread = getTotalUnreadCount()
-            val allConversations = conversationsDB.getNonArchived()
+            val categories = context.categoriesDB.getCategories()
+            val unread = context.getCategoryUnreadCounts()
+            val totalUnread = context.getTotalUnreadCount()
+            val allConversations = context.conversationsDB.getNonArchived()
 
             post {
                 tabs.removeAllViews()
@@ -95,8 +95,8 @@ class CategoryTabsView @JvmOverloads constructor(
                     ) {
                         selectedCategoryId = category.id
                         ensureBackgroundThread {
-                            val threadIds = categoriesDB.getThreadIdsForCategory(category.id).toHashSet()
-                            val filtered = conversationsDB.getNonArchived().filter { it.threadId in threadIds }
+                            val threadIds = context.categoriesDB.getThreadIdsForCategory(category.id).toHashSet()
+                            val filtered = context.conversationsDB.getNonArchived().filter { it.threadId in threadIds }
                             post {
                                 applyConversationFilter(filtered)
                                 refreshTabsAndList()
@@ -119,13 +119,12 @@ class CategoryTabsView @JvmOverloads constructor(
         }
 
         ensureBackgroundThread {
-            val threadIds = categoriesDB.getThreadIdsForCategory(categoryId).toHashSet()
-            val filtered = conversationsDB.getNonArchived().filter { it.threadId in threadIds }
+            val threadIds = context.categoriesDB.getThreadIdsForCategory(categoryId).toHashSet()
+            val filtered = context.conversationsDB.getNonArchived().filter { it.threadId in threadIds }
             post { applyConversationFilter(filtered) }
         }
     }
 
-    @Suppress("UNCHECKED_CAST")
     private fun applyConversationFilter(conversations: List<Conversation>) {
         val recycler = rootView.findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.conversations_list)
             ?: return
@@ -188,7 +187,7 @@ class CategoryTabsView @JvmOverloads constructor(
                 if (name.isNotEmpty()) {
                     ensureBackgroundThread {
                         runCatching {
-                            createMessageCategory(name, categoriesDB.getCategories().size)
+                            context.createMessageCategory(name, context.categoriesDB.getCategories().size)
                         }
                         post { refreshTabsAndList() }
                     }
