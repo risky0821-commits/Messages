@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="category_all">All</string>
+    <string name="create_category">Create category</string>
+    <string name="category_name_hint">Category name</string>
+    <string name="move_to_category">Move to category</string>
+    <string name="remove_from_category">Remove from category</string>
+    <string name="manage_categories">Manage categories</string>
+</resources>
