@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="category_all">الكل</string>
+    <string name="create_category">إنشاء فئة</string>
+    <string name="category_name_hint">اسم الفئة</string>
+    <string name="move_to_category">نقل إلى فئة</string>
+    <string name="remove_from_category">إزالة من الفئة</string>
+    <string name="manage_categories">إدارة الفئات</string>
+</resources>
