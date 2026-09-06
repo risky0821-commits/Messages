@@ -22,6 +22,7 @@ import org.fossify.messages.extensions.getCategoryUnreadCounts
 import org.fossify.messages.extensions.getTotalUnreadCount
 import org.fossify.messages.models.Conversation
 import org.fossify.messages.models.Events
+import org.fossify.messages.models.MessageCategory
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
@@ -77,37 +78,46 @@ class CategoryTabsView @JvmOverloads constructor(
 
             post {
                 tabs.removeAllViews()
-                tabs.addView(makeTab(
-                    title = context.getString(R.string.category_all),
-                    unreadCount = totalUnread,
-                    selected = selectedCategoryId == null,
-                ) {
-                    selectedCategoryId = null
-                    applyConversationFilter(allConversations)
-                    refreshTabsAndList()
-                })
+                tabs.addView(
+                    makeTab(
+                        title = context.getString(R.string.category_all),
+                        unreadCount = totalUnread,
+                        selected = selectedCategoryId == null,
+                        onClick = {
+                            selectedCategoryId = null
+                            applyConversationFilter(allConversations)
+                            refreshTabsAndList()
+                        },
+                    )
+                )
 
                 categories.forEach { category ->
-                    tabs.addView(makeTab(
-                        title = category.name,
-                        unreadCount = unread[category.id] ?: 0,
-                        selected = selectedCategoryId == category.id,
-                    ) {
-                        selectedCategoryId = category.id
-                        ensureBackgroundThread {
-                            val threadIds = context.categoriesDB.getThreadIdsForCategory(category.id).toHashSet()
-                            val filtered = context.conversationsDB.getNonArchived().filter { it.threadId in threadIds }
-                            post {
-                                applyConversationFilter(filtered)
+                    tabs.addView(
+                        makeTab(
+                            title = category.name,
+                            unreadCount = unread[category.id] ?: 0,
+                            selected = selectedCategoryId == category.id,
+                            onClick = {
+                                selectedCategoryId = category.id
+                                applySelectedCategory(category.id)
                                 refreshTabsAndList()
-                            }
-                        }
-                    })
+                            },
+                            onLongClick = { showManageCategoryDialog(category) },
+                        )
+                    )
                 }
 
                 tabs.addView(makeAddButton())
                 applyCurrentSelectionIfPossible(allConversations)
             }
+        }
+    }
+
+    private fun applySelectedCategory(categoryId: Long) {
+        ensureBackgroundThread {
+            val threadIds = context.categoriesDB.getThreadIdsForCategory(categoryId).toHashSet()
+            val filtered = context.conversationsDB.getNonArchived().filter { it.threadId in threadIds }
+            post { applyConversationFilter(filtered) }
         }
     }
 
@@ -117,12 +127,7 @@ class CategoryTabsView @JvmOverloads constructor(
             applyConversationFilter(allConversations)
             return
         }
-
-        ensureBackgroundThread {
-            val threadIds = context.categoriesDB.getThreadIdsForCategory(categoryId).toHashSet()
-            val filtered = context.conversationsDB.getNonArchived().filter { it.threadId in threadIds }
-            post { applyConversationFilter(filtered) }
-        }
+        applySelectedCategory(categoryId)
     }
 
     private fun applyConversationFilter(conversations: List<Conversation>) {
@@ -137,6 +142,7 @@ class CategoryTabsView @JvmOverloads constructor(
         unreadCount: Int,
         selected: Boolean,
         onClick: () -> Unit,
+        onLongClick: (() -> Unit)? = null,
     ): TextView {
         val label = if (unreadCount > 0) "$title  $unreadCount" else title
         return TextView(context).apply {
@@ -149,6 +155,12 @@ class CategoryTabsView @JvmOverloads constructor(
             isClickable = true
             isFocusable = true
             setOnClickListener { onClick() }
+            if (onLongClick != null) {
+                setOnLongClickListener {
+                    onLongClick()
+                    true
+                }
+            }
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -191,6 +203,62 @@ class CategoryTabsView @JvmOverloads constructor(
                         }
                         post { refreshTabsAndList() }
                     }
+                }
+            }
+            .show()
+    }
+
+    private fun showManageCategoryDialog(category: MessageCategory) {
+        val options = arrayOf(
+            context.getString(R.string.rename_category),
+            context.getString(R.string.delete_category),
+        )
+        AlertDialog.Builder(context)
+            .setTitle(category.name)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> showRenameCategoryDialog(category)
+                    1 -> showDeleteCategoryDialog(category)
+                }
+            }
+            .show()
+    }
+
+    private fun showRenameCategoryDialog(category: MessageCategory) {
+        val input = EditText(context).apply {
+            setText(category.name)
+            setSelection(text.length)
+            setSingleLine(true)
+            setPadding(dp(16), dp(8), dp(16), dp(8))
+        }
+        AlertDialog.Builder(context)
+            .setTitle(R.string.rename_category)
+            .setView(input)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val name = input.text?.toString()?.trim().orEmpty()
+                if (name.isNotEmpty()) {
+                    ensureBackgroundThread {
+                        runCatching { context.categoriesDB.renameCategory(category.id, name) }
+                        post { refreshTabsAndList() }
+                    }
+                }
+            }
+            .show()
+    }
+
+    private fun showDeleteCategoryDialog(category: MessageCategory) {
+        AlertDialog.Builder(context)
+            .setTitle(R.string.delete_category)
+            .setMessage(context.getString(R.string.delete_category_confirmation, category.name))
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                ensureBackgroundThread {
+                    context.categoriesDB.deleteCategoryAndMappings(category.id)
+                    if (selectedCategoryId == category.id) {
+                        selectedCategoryId = null
+                    }
+                    post { refreshTabsAndList() }
                 }
             }
             .show()
