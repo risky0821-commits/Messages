@@ -12,4 +12,5 @@
     <string name="delete_category_confirmation">Delete "%1$s"? Messages will stay in All.</string>
     <string name="no_category">No category</string>
     <string name="mute_conversation">Mute this conversation</string>
+    <string name="unmute_conversation">Unmute this conversation</string>
 </resources>
