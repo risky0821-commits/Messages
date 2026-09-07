@@ -7,6 +7,7 @@ import android.util.AttributeSet
 import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
+import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.card.MaterialCardView
@@ -18,6 +19,7 @@ import org.fossify.messages.models.Events
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
+import kotlin.math.roundToInt
 
 class OneUiUnreadSummaryView @JvmOverloads constructor(
     context: Context,
@@ -28,7 +30,9 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
     private val actionText = TextView(context)
     private var registeredToBus = false
     private var recyclerAttached = false
-    private var collapsed = false
+    private var expandedHeight = 0
+    private var expandedTopMargin = 0
+    private var collapseOffset = 0f
 
     init {
         radius = dp(30).toFloat()
@@ -98,7 +102,10 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
             EventBus.getDefault().register(this)
             registeredToBus = true
         }
-        post { attachRecyclerScroll() }
+        post {
+            captureExpandedSize()
+            attachRecyclerScroll()
+        }
         refreshUnreadCount()
     }
 
@@ -131,47 +138,53 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
         tabsContainer.getChildAt(1)?.performClick()
     }
 
+    private fun captureExpandedSize() {
+        if (expandedHeight != 0 || height <= 0) return
+        expandedHeight = height
+        expandedTopMargin = (layoutParams as? RelativeLayout.LayoutParams)?.topMargin ?: 0
+        applyCollapseProgress()
+    }
+
     private fun attachRecyclerScroll() {
         if (recyclerAttached) return
         val recycler = rootView.findViewById<RecyclerView>(R.id.conversations_list) ?: return
         recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                when {
-                    dy > 3 && !collapsed -> collapse()
-                    !recyclerView.canScrollVertically(-1) && collapsed -> expand()
+                if (expandedHeight <= 0) {
+                    captureExpandedSize()
+                    return
                 }
+
+                if (!recyclerView.canScrollVertically(-1) && dy <= 0) {
+                    collapseOffset = 0f
+                } else {
+                    collapseOffset = (collapseOffset + dy).coerceIn(0f, collapseDistance())
+                }
+                applyCollapseProgress()
             }
         })
         recyclerAttached = true
     }
 
-    private fun collapse() {
-        if (collapsed) return
-        collapsed = true
-        animate().cancel()
-        animate()
-            .alpha(0f)
-            .translationY(-height * 0.35f)
-            .setDuration(180L)
-            .withEndAction {
-                visibility = View.GONE
-                translationY = 0f
-            }
-            .start()
-    }
+    private fun collapseDistance(): Float = (expandedHeight + expandedTopMargin).coerceAtLeast(1).toFloat()
 
-    private fun expand() {
-        if (!collapsed) return
-        collapsed = false
-        animate().cancel()
-        visibility = View.VISIBLE
-        alpha = 0f
-        translationY = -dp(24).toFloat()
-        animate()
-            .alpha(1f)
-            .translationY(0f)
-            .setDuration(220L)
-            .start()
+    private fun applyCollapseProgress() {
+        if (expandedHeight <= 0) return
+        val progress = (collapseOffset / collapseDistance()).coerceIn(0f, 1f)
+        val params = layoutParams as? RelativeLayout.LayoutParams ?: return
+
+        val newHeight = (expandedHeight * (1f - progress)).roundToInt().coerceAtLeast(0)
+        val newTopMargin = (expandedTopMargin * (1f - progress)).roundToInt().coerceAtLeast(0)
+        if (params.height != newHeight || params.topMargin != newTopMargin) {
+            params.height = newHeight
+            params.topMargin = newTopMargin
+            layoutParams = params
+        }
+
+        alpha = (1f - progress * 1.15f).coerceIn(0f, 1f)
+        translationY = -dp(12) * progress
+        scaleX = 1f - (0.025f * progress)
+        scaleY = 1f - (0.025f * progress)
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
