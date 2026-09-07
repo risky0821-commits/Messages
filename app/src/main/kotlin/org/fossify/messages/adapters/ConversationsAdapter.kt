@@ -150,7 +150,8 @@ class ConversationsAdapter(
                 MUTED_NOTIFICATION_CHANNEL_PREFIX + threadId
             )
         }
-        refreshConversationsAndFinishActMode()
+        refreshVisualIndicators()
+        finishActMode()
     }
 
     private fun tryBlocking() {
