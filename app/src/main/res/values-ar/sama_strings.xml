@@ -12,4 +12,5 @@
     <string name="delete_category_confirmation">حذف "%1$s"؟ الرسائل ستبقى في تبويب الكل.</string>
     <string name="no_category">بدون فئة</string>
     <string name="mute_conversation">كتم إشعارات هذه المحادثة</string>
+    <string name="unmute_conversation">إلغاء كتم إشعارات هذه المحادثة</string>
 </resources>
