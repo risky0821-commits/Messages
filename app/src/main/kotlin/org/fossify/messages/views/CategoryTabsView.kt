@@ -45,6 +45,7 @@ class CategoryTabsView @JvmOverloads constructor(
     }
 
     private var selectedCategoryId: Long? = null
+    private var showUnreadOnly = false
     private var registeredToBus = false
 
     init {
@@ -88,10 +89,25 @@ class CategoryTabsView @JvmOverloads constructor(
                     makeTab(
                         title = context.getString(R.string.category_all),
                         unreadCount = totalUnread,
-                        selected = selectedCategoryId == null,
+                        selected = !showUnreadOnly && selectedCategoryId == null,
                         onClick = {
+                            showUnreadOnly = false
                             selectedCategoryId = null
                             applyConversationFilter(allConversations)
+                            refreshTabsAndList()
+                        },
+                    )
+                )
+
+                tabs.addView(
+                    makeTab(
+                        title = context.getString(R.string.category_unread),
+                        unreadCount = totalUnread,
+                        selected = showUnreadOnly,
+                        onClick = {
+                            showUnreadOnly = true
+                            selectedCategoryId = null
+                            applyConversationFilter(allConversations.filter { !it.read })
                             refreshTabsAndList()
                         },
                     )
@@ -102,8 +118,9 @@ class CategoryTabsView @JvmOverloads constructor(
                         makeTab(
                             title = category.name,
                             unreadCount = unread[category.id] ?: 0,
-                            selected = selectedCategoryId == category.id,
+                            selected = !showUnreadOnly && selectedCategoryId == category.id,
                             onClick = {
+                                showUnreadOnly = false
                                 selectedCategoryId = category.id
                                 applySelectedCategory(category.id)
                                 refreshTabsAndList()
@@ -128,6 +145,11 @@ class CategoryTabsView @JvmOverloads constructor(
     }
 
     private fun applyCurrentSelectionIfPossible(allConversations: List<Conversation>) {
+        if (showUnreadOnly) {
+            applyConversationFilter(allConversations.filter { !it.read })
+            return
+        }
+
         val categoryId = selectedCategoryId
         if (categoryId == null) {
             applyConversationFilter(allConversations)
