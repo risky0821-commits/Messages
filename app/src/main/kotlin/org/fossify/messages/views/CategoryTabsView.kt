@@ -7,13 +7,18 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.util.AttributeSet
+import android.view.GestureDetector
 import android.view.Gravity
+import android.view.MotionEvent
+import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
+import androidx.recyclerview.widget.RecyclerView
+import kotlin.math.abs
 import org.fossify.commons.extensions.getProperPrimaryColor
 import org.fossify.commons.extensions.getProperTextColor
 import org.fossify.commons.helpers.ensureBackgroundThread
@@ -47,6 +52,8 @@ class CategoryTabsView @JvmOverloads constructor(
     private var selectedCategoryId: Long? = null
     private var showUnreadOnly = false
     private var registeredToBus = false
+    private var swipeNavigationAttached = false
+    private var currentCategories: List<MessageCategory> = emptyList()
 
     init {
         isHorizontalScrollBarEnabled = false
@@ -60,6 +67,7 @@ class CategoryTabsView @JvmOverloads constructor(
             EventBus.getDefault().register(this)
             registeredToBus = true
         }
+        post { attachSwipeNavigation() }
         refreshTabsAndList()
     }
 
@@ -68,6 +76,7 @@ class CategoryTabsView @JvmOverloads constructor(
             EventBus.getDefault().unregister(this)
             registeredToBus = false
         }
+        swipeNavigationAttached = false
         super.onDetachedFromWindow()
     }
 
@@ -84,6 +93,8 @@ class CategoryTabsView @JvmOverloads constructor(
             val allConversations = context.conversationsDB.getNonArchived()
 
             post {
+                currentCategories = categories
+                attachSwipeNavigation()
                 tabs.removeAllViews()
                 tabs.addView(
                     makeTab(
@@ -132,7 +143,89 @@ class CategoryTabsView @JvmOverloads constructor(
 
                 tabs.addView(makeAddButton())
                 applyCurrentSelectionIfPossible(allConversations)
+                scrollSelectedTabIntoView()
             }
+        }
+    }
+
+    private fun attachSwipeNavigation() {
+        if (swipeNavigationAttached) return
+        val recycler = rootView.findViewById<RecyclerView>(R.id.conversations_list) ?: return
+        val detector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: MotionEvent): Boolean = true
+
+            override fun onFling(
+                e1: MotionEvent?,
+                e2: MotionEvent,
+                velocityX: Float,
+                velocityY: Float,
+            ): Boolean {
+                if (e1 == null) return false
+                val deltaX = e2.x - e1.x
+                val deltaY = e2.y - e1.y
+                val isHorizontalSwipe = abs(deltaX) >= dp(72) &&
+                    abs(deltaX) > abs(deltaY) * 1.2f &&
+                    abs(velocityX) >= 450f
+                if (!isHorizontalSwipe) return false
+
+                var step = if (deltaX < 0f) 1 else -1
+                if (layoutDirection == View.LAYOUT_DIRECTION_RTL) {
+                    step *= -1
+                }
+                moveSelection(step)
+                return true
+            }
+        })
+
+        recycler.setOnTouchListener { _, event ->
+            detector.onTouchEvent(event)
+            false
+        }
+        swipeNavigationAttached = true
+    }
+
+    private fun moveSelection(step: Int) {
+        val totalItems = currentCategories.size + 2
+        if (totalItems <= 1) return
+        val currentIndex = when {
+            showUnreadOnly -> 1
+            selectedCategoryId == null -> 0
+            else -> {
+                val categoryIndex = currentCategories.indexOfFirst { it.id == selectedCategoryId }
+                if (categoryIndex >= 0) categoryIndex + 2 else 0
+            }
+        }
+        val targetIndex = (currentIndex + step).coerceIn(0, totalItems - 1)
+        if (targetIndex == currentIndex) return
+
+        when (targetIndex) {
+            0 -> {
+                showUnreadOnly = false
+                selectedCategoryId = null
+            }
+            1 -> {
+                showUnreadOnly = true
+                selectedCategoryId = null
+            }
+            else -> {
+                showUnreadOnly = false
+                selectedCategoryId = currentCategories[targetIndex - 2].id
+            }
+        }
+        refreshTabsAndList()
+    }
+
+    private fun scrollSelectedTabIntoView() {
+        val selectedIndex = when {
+            showUnreadOnly -> 1
+            selectedCategoryId == null -> 0
+            else -> currentCategories.indexOfFirst { it.id == selectedCategoryId }
+                .takeIf { it >= 0 }?.plus(2) ?: 0
+        }
+        val selectedView = tabs.getChildAt(selectedIndex) ?: return
+        post {
+            val targetX = selectedView.left - dp(12)
+            smoothScrollTo(targetX.coerceAtLeast(0), 0)
         }
     }
 
@@ -159,8 +252,7 @@ class CategoryTabsView @JvmOverloads constructor(
     }
 
     private fun applyConversationFilter(conversations: List<Conversation>) {
-        val recycler = rootView.findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.conversations_list)
-            ?: return
+        val recycler = rootView.findViewById<RecyclerView>(R.id.conversations_list) ?: return
         val adapter = recycler.adapter as? BaseConversationsAdapter ?: return
         val sortedConversations = conversations.sortedWith(
             compareByDescending<Conversation> {
