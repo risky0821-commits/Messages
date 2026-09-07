@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package org.fossify.messages.interfaces
 
 import androidx.room.Dao
