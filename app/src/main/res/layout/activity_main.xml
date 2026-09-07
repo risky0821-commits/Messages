@@ -105,20 +105,25 @@
                             android:layout_height="wrap_content"
                             android:fillViewport="false" />
 
-                        <com.qtalk.recyclerviewfastscroller.RecyclerViewFastScroller
-                            android:id="@+id/conversations_fastscroller"
+                        <org.fossify.messages.views.CategoryPagerView
+                            android:id="@+id/category_pager"
                             android:layout_width="match_parent"
                             android:layout_height="0dp"
-                            android:layout_weight="1">
+                            android:layout_weight="1" />
+
+                        <com.qtalk.recyclerviewfastscroller.RecyclerViewFastScroller
+                            android:id="@+id/conversations_fastscroller"
+                            android:layout_width="1dp"
+                            android:layout_height="1dp"
+                            android:alpha="0"
+                            android:importantForAccessibility="noHideDescendants">
 
                             <org.fossify.commons.views.MyRecyclerView
                                 android:id="@+id/conversations_list"
-                                android:layout_width="match_parent"
-                                android:layout_height="match_parent"
+                                android:layout_width="1dp"
+                                android:layout_height="1dp"
                                 android:clipToPadding="false"
                                 android:overScrollMode="never"
-                                android:paddingTop="2dp"
-                                android:paddingBottom="@dimen/bigger_margin"
                                 android:scrollbars="none"
                                 app:layoutManager="org.fossify.commons.views.MyLinearLayoutManager" />
 
