@@ -17,6 +17,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fillViewport="true"
+        android:fitsSystemWindows="true"
         android:scrollbars="none">
 
         <androidx.coordinatorlayout.widget.CoordinatorLayout
@@ -115,8 +116,7 @@
                                 android:layout_width="match_parent"
                                 android:layout_height="match_parent"
                                 android:clipToPadding="false"
-                                android:layoutAnimation="@anim/layout_animation"
-                                android:overScrollMode="ifContentScrolls"
+                                android:overScrollMode="never"
                                 android:paddingTop="2dp"
                                 android:paddingBottom="@dimen/bigger_margin"
                                 android:scrollbars="none"
