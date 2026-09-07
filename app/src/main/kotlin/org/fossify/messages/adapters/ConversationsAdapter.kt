@@ -27,6 +27,7 @@ import org.fossify.messages.extensions.markThreadMessagesRead
 import org.fossify.messages.extensions.markThreadMessagesUnread
 import org.fossify.messages.extensions.renameConversation
 import org.fossify.messages.extensions.updateConversationArchivedStatus
+import org.fossify.messages.helpers.MUTED_NOTIFICATION_CHANNEL_PREFIX
 import org.fossify.messages.helpers.refreshConversations
 import org.fossify.messages.messaging.isShortCodeWithLetters
 import org.fossify.messages.models.Conversation
@@ -58,6 +59,14 @@ class ConversationsAdapter(
             findItem(R.id.cab_rename_conversation).isVisible =
                 isSingleSelection && isGroupConversation
             findItem(R.id.cab_conversation_details).isVisible = isSingleSelection
+            findItem(R.id.cab_mute_conversation).apply {
+                isVisible = isSingleSelection
+                title = if (activity.config.isConversationMuted(selectedConversation.threadId)) {
+                    activity.getString(R.string.unmute_conversation)
+                } else {
+                    activity.getString(R.string.mute_conversation)
+                }
+            }
             findItem(R.id.cab_mark_as_read).isVisible = selectedItems.any { !it.read }
             findItem(R.id.cab_mark_as_unread).isVisible = selectedItems.any { it.read }
             findItem(R.id.cab_archive).isVisible = archiveAvailable
@@ -80,6 +89,7 @@ class ConversationsAdapter(
             R.id.cab_delete -> askConfirmDelete()
             R.id.cab_archive -> askConfirmArchive()
             R.id.cab_move_to_category -> showMoveToCategoryDialog()
+            R.id.cab_mute_conversation -> toggleMuteConversation()
             R.id.cab_rename_conversation -> renameConversation(selectedItems.first())
             R.id.cab_conversation_details ->
                 activity.launchConversationDetails(selectedItems.first().threadId)
@@ -126,6 +136,21 @@ class ConversationsAdapter(
                     .show()
             }
         }
+    }
+
+    private fun toggleMuteConversation() {
+        val conversation = getSelectedItems().singleOrNull() ?: return
+        val threadId = conversation.threadId
+        val muted = !activity.config.isConversationMuted(threadId)
+
+        activity.config.setConversationMuted(threadId, muted)
+        activity.notificationManager.cancel(threadId.hashCode())
+        if (!muted) {
+            activity.notificationManager.deleteNotificationChannel(
+                MUTED_NOTIFICATION_CHANNEL_PREFIX + threadId
+            )
+        }
+        finishActMode()
     }
 
     private fun tryBlocking() {
