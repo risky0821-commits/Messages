@@ -147,6 +147,9 @@ abstract class BaseConversationsAdapter(
             draftIndicator.beVisibleIf(!smsDraft.isNullOrEmpty())
             draftIndicator.setTextColor(properPrimaryColor)
 
+            muteIndicator.beVisibleIf(activity.config.isConversationMuted(conversation.threadId))
+            muteIndicator.applyColorFilter(textColor)
+
             pinIndicator.beVisibleIf(
                 activity.config.pinnedConversations.contains(conversation.threadId.toString())
             )
