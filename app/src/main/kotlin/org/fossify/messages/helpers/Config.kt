@@ -142,6 +142,23 @@ class Config(context: Context) : BaseConfig(context) {
         customNotifications = customNotifications.minus(threadId.toString())
     }
 
+    var mutedConversations: Set<String>
+        get() = prefs.getStringSet(MUTED_CONVERSATIONS, HashSet<String>())!!
+        set(mutedConversations) = prefs.edit()
+            .putStringSet(MUTED_CONVERSATIONS, mutedConversations).apply()
+
+    fun isConversationMuted(threadId: Long): Boolean {
+        return mutedConversations.contains(threadId.toString())
+    }
+
+    fun setConversationMuted(threadId: Long, muted: Boolean) {
+        mutedConversations = if (muted) {
+            mutedConversations.plus(threadId.toString())
+        } else {
+            mutedConversations.minus(threadId.toString())
+        }
+    }
+
     var lastBlockedKeywordExportPath: String
         get() = prefs.getString(LAST_BLOCKED_KEYWORD_EXPORT_PATH, "")!!
         set(lastBlockedNumbersExportPath) = prefs.edit()
