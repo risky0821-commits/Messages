@@ -206,7 +206,7 @@ class CategoryTabsView @JvmOverloads constructor(
             textSize = 22f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(context.getProperTextColor())
-            contentDescription = context.getString(org.fossify.commons.R.string.more)
+            contentDescription = context.getString(R.string.more_options)
             background = pillBackground(false, primary)
             isClickable = true
             isFocusable = true
