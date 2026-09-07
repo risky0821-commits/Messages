@@ -3,6 +3,8 @@
     <string name="sama_app_name">Sama</string>
     <string name="category_all">الكل</string>
     <string name="category_unread">غير مقروءة</string>
+    <string name="unread_messages_summary">%1$d رسالة غير مقروءة</string>
+    <string name="view_unread_messages">عرض</string>
     <string name="create_category">إنشاء فئة</string>
     <string name="category_name_hint">اسم الفئة</string>
     <string name="move_to_category">نقل إلى فئة</string>
