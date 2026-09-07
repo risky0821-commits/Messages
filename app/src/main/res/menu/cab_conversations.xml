@@ -45,6 +45,11 @@
         android:title="@string/move_to_category"
         app:showAsAction="never" />
     <item
+        android:id="@+id/cab_mute_conversation"
+        android:showAsAction="never"
+        android:title="@string/mute_conversation"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/cab_mark_as_read"
         android:showAsAction="never"
         android:title="@string/mark_as_read"
