@@ -2,6 +2,7 @@
 <resources>
     <string name="sama_app_name">Sama</string>
     <string name="category_all">الكل</string>
+    <string name="category_unread">غير مقروءة</string>
     <string name="create_category">إنشاء فئة</string>
     <string name="category_name_hint">اسم الفئة</string>
     <string name="move_to_category">نقل إلى فئة</string>
@@ -13,4 +14,5 @@
     <string name="no_category">بدون فئة</string>
     <string name="mute_conversation">كتم إشعارات هذه المحادثة</string>
     <string name="unmute_conversation">إلغاء كتم إشعارات هذه المحادثة</string>
+    <string name="muted_conversation_indicator">محادثة مكتومة</string>
 </resources>
