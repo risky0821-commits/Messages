@@ -150,7 +150,7 @@ class ConversationsAdapter(
                 MUTED_NOTIFICATION_CHANNEL_PREFIX + threadId
             )
         }
-        finishActMode()
+        refreshConversationsAndFinishActMode()
     }
 
     private fun tryBlocking() {
@@ -210,7 +210,6 @@ class ConversationsAdapter(
     private fun askConfirmDelete() {
         val itemsCnt = selectedKeys.size
         val items = resources.getQuantityString(R.plurals.delete_conversations, itemsCnt, itemsCnt)
-
         val baseString = org.fossify.commons.R.string.deletion_confirmation
         val question = String.format(resources.getString(baseString), items)
 
@@ -224,7 +223,6 @@ class ConversationsAdapter(
     private fun askConfirmArchive() {
         val itemsCnt = selectedKeys.size
         val items = resources.getQuantityString(R.plurals.delete_conversations, itemsCnt, itemsCnt)
-
         val baseString = R.string.archive_confirmation
         val question = String.format(resources.getString(baseString), items)
 
@@ -324,7 +322,6 @@ class ConversationsAdapter(
             conversationsMarkedAsRead.filter { conversation -> !conversation.read }.forEach {
                 activity.markThreadMessagesRead(it.threadId)
             }
-
             refreshConversationsAndFinishActMode()
         }
     }
@@ -340,7 +337,6 @@ class ConversationsAdapter(
             conversationsMarkedAsUnread.filter { conversation -> conversation.read }.forEach {
                 activity.markThreadMessagesUnread(it.threadId)
             }
-
             refreshConversationsAndFinishActMode()
         }
     }
