@@ -52,6 +52,9 @@ inline fun <T> Collection<T>.filterNotInByKey(
 }
 
 fun Collection<Message>.toSortedMessages(): List<Message> {
-    return ArrayList(this).apply { sortBy { it.date } }
+    return sortedWith(
+        compareBy<Message> { it.date }
+            .thenBy { it.isMMS }
+            .thenBy { it.id }
+    )
 }
-
