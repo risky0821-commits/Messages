@@ -12,22 +12,26 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.color.MaterialColors
+import kotlin.math.roundToInt
 import org.fossify.commons.helpers.ensureBackgroundThread
 import org.fossify.messages.R
+import org.fossify.messages.extensions.categoriesDB
 import org.fossify.messages.extensions.getTotalUnreadCount
 import org.fossify.messages.models.Events
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
-import kotlin.math.roundToInt
 
 class OneUiUnreadSummaryView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
 ) : MaterialCardView(context, attrs) {
 
+    private val categoryTitleText = TextView(context)
     private val summaryText = TextView(context)
     private val actionText = TextView(context)
+    private var activeCategoryId: Long? = null
+    private var activeCategoryTitle: String? = null
     private var registeredToBus = false
     private var recyclerAttached = false
     private var expandedHeight = 0
@@ -35,21 +39,32 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
     private var collapseOffset = 0f
 
     init {
-        radius = dp(30).toFloat()
+        radius = dp(32).toFloat()
         cardElevation = 0f
         setCardBackgroundColor(
             MaterialColors.getColor(this, com.google.android.material.R.attr.colorSurface, Color.DKGRAY)
         )
-        setContentPadding(dp(22), dp(20), dp(22), dp(18))
+        setContentPadding(dp(24), dp(30), dp(24), dp(28))
 
         val content = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
         }
 
+        categoryTitleText.apply {
+            gravity = Gravity.CENTER
+            textSize = 18f
+            setTypeface(typeface, Typeface.BOLD)
+            visibility = View.GONE
+            alpha = 0.82f
+            setTextColor(
+                MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurface, Color.WHITE)
+            )
+        }
+
         summaryText.apply {
             gravity = Gravity.CENTER
-            textSize = 22f
+            textSize = 24f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(
                 MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurface, Color.WHITE)
@@ -61,13 +76,13 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
             gravity = Gravity.CENTER
             textSize = 16f
             setTypeface(typeface, Typeface.BOLD)
-            setPadding(dp(24), dp(10), dp(24), dp(10))
+            setPadding(dp(26), dp(11), dp(26), dp(11))
             setTextColor(
                 MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurface, Color.WHITE)
             )
             background = android.graphics.drawable.GradientDrawable().apply {
                 shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-                cornerRadius = dp(22).toFloat()
+                cornerRadius = dp(23).toFloat()
                 setColor(
                     MaterialColors.getColor(
                         this@OneUiUnreadSummaryView,
@@ -80,6 +95,13 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
         }
 
         content.addView(
+            categoryTitleText,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { bottomMargin = dp(8) },
+        )
+        content.addView(
             summaryText,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -91,7 +113,7 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { topMargin = dp(14) },
+            ).apply { topMargin = dp(18) },
         )
         addView(content)
     }
@@ -122,10 +144,25 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
         refreshUnreadCount()
     }
 
+    fun setCategorySummary(categoryId: Long?, title: String?) {
+        activeCategoryId = categoryId
+        activeCategoryTitle = title
+        refreshUnreadCount()
+    }
+
     private fun refreshUnreadCount() {
         ensureBackgroundThread {
-            val unread = context.getTotalUnreadCount()
+            val categoryId = activeCategoryId
+            val unread = if (categoryId == null) {
+                context.getTotalUnreadCount()
+            } else {
+                context.categoriesDB.getUnreadCount(categoryId)
+            }
+            val title = activeCategoryTitle
+
             post {
+                categoryTitleText.visibility = if (title.isNullOrBlank()) View.GONE else View.VISIBLE
+                categoryTitleText.text = title.orEmpty()
                 summaryText.text = context.getString(R.string.unread_messages_summary, unread)
                 actionText.visibility = if (unread > 0) View.VISIBLE else View.GONE
             }
@@ -168,7 +205,8 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
 
     private fun applyCollapseProgress() {
         if (expandedHeight <= 0) return
-        val progress = (collapseOffset / collapseDistance()).coerceIn(0f, 1f)
+        val rawProgress = (collapseOffset / collapseDistance()).coerceIn(0f, 1f)
+        val progress = rawProgress * rawProgress * (3f - 2f * rawProgress)
         val params = layoutParams as? RelativeLayout.LayoutParams ?: return
 
         val newHeight = (expandedHeight * (1f - progress)).roundToInt().coerceAtLeast(0)
@@ -179,10 +217,12 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
             layoutParams = params
         }
 
-        alpha = (1f - progress * 1.15f).coerceIn(0f, 1f)
-        translationY = -dp(12) * progress
-        scaleX = 1f - (0.025f * progress)
-        scaleY = 1f - (0.025f * progress)
+        pivotX = width / 2f
+        pivotY = height / 2f
+        alpha = (1f - progress * 1.08f).coerceIn(0f, 1f)
+        translationY = -dp(24) * progress
+        scaleX = 1f - (0.16f * progress)
+        scaleY = 1f - (0.16f * progress)
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
