@@ -1,3 +1,5 @@
+@file:Suppress("MagicNumber", "TooManyFunctions", "UnusedParameter")
+
 package org.fossify.messages.views
 
 import android.content.Context
