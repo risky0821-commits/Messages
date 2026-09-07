@@ -48,11 +48,9 @@
                 android:id="@+id/mute_notifications_holder"
                 style="@style/SettingsHolderSwitchStyle"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:visibility="gone"
-                tools:visibility="visible">
+                android:layout_height="wrap_content">
 
-                <org.fossify.commons.views.MyMaterialSwitch
+                <org.fossify.messages.views.MuteConversationSwitch
                     android:id="@+id/mute_notifications"
                     style="@style/SettingsSwitchStyle"
                     android:layout_width="match_parent"
