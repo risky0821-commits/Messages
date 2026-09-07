@@ -14,7 +14,7 @@
     <RelativeLayout
         android:id="@+id/main_nested_scrollview"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:fillViewport="true"
         android:scrollbars="none"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
@@ -41,11 +41,21 @@
                     app:showDelay="250"
                     tools:visibility="visible" />
 
+                <org.fossify.messages.views.OneUiUnreadSummaryView
+                    android:id="@+id/unread_summary_card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_below="@id/conversations_progress_bar"
+                    android:layout_marginStart="@dimen/activity_margin"
+                    android:layout_marginTop="@dimen/medium_margin"
+                    android:layout_marginEnd="@dimen/activity_margin" />
+
                 <org.fossify.messages.views.CategoryTabsView
                     android:id="@+id/category_tabs"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_below="@id/conversations_progress_bar"
+                    android:layout_below="@id/unread_summary_card"
+                    android:layout_marginTop="@dimen/small_margin"
                     android:fillViewport="false" />
 
                 <org.fossify.commons.views.MyTextView
@@ -77,23 +87,39 @@
                     android:textSize="@dimen/bigger_text_size"
                     android:visibility="gone" />
 
-                <com.qtalk.recyclerviewfastscroller.RecyclerViewFastScroller
-                    android:id="@+id/conversations_fastscroller"
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/inbox_card"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:layout_below="@id/category_tabs">
+                    android:layout_below="@id/category_tabs"
+                    android:layout_marginStart="@dimen/activity_margin"
+                    android:layout_marginTop="@dimen/small_margin"
+                    android:layout_marginEnd="@dimen/activity_margin"
+                    android:layout_marginBottom="@dimen/activity_margin"
+                    app:cardBackgroundColor="?attr/colorSurface"
+                    app:cardCornerRadius="28dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="0dp">
 
-                    <org.fossify.commons.views.MyRecyclerView
-                        android:id="@+id/conversations_list"
+                    <com.qtalk.recyclerviewfastscroller.RecyclerViewFastScroller
+                        android:id="@+id/conversations_fastscroller"
                         android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:clipToPadding="false"
-                        android:layoutAnimation="@anim/layout_animation"
-                        android:overScrollMode="ifContentScrolls"
-                        android:scrollbars="none"
-                        app:layoutManager="org.fossify.commons.views.MyLinearLayoutManager" />
+                        android:layout_height="match_parent">
 
-                </com.qtalk.recyclerviewfastscroller.RecyclerViewFastScroller>
+                        <org.fossify.commons.views.MyRecyclerView
+                            android:id="@+id/conversations_list"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:clipToPadding="false"
+                            android:layoutAnimation="@anim/layout_animation"
+                            android:overScrollMode="ifContentScrolls"
+                            android:paddingTop="@dimen/small_margin"
+                            android:paddingBottom="@dimen/bigger_margin"
+                            android:scrollbars="none"
+                            app:layoutManager="org.fossify.commons.views.MyLinearLayoutManager" />
+
+                    </com.qtalk.recyclerviewfastscroller.RecyclerViewFastScroller>
+                </com.google.android.material.card.MaterialCardView>
             </RelativeLayout>
         </androidx.coordinatorlayout.widget.CoordinatorLayout>
 
@@ -149,7 +175,7 @@
         android:id="@+id/conversations_fab"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
+        android:layout_gravity="bottom|start"
         android:layout_margin="@dimen/activity_margin"
         android:src="@drawable/ic_plus_vector"
         app:applyWindowInsets="true" />
