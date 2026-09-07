@@ -133,9 +133,7 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
     }
 
     private fun openUnreadFilter() {
-        val categoryTabs = rootView.findViewById<CategoryTabsView>(R.id.category_tabs) ?: return
-        val tabsContainer = categoryTabs.getChildAt(0) as? android.view.ViewGroup ?: return
-        tabsContainer.getChildAt(1)?.performClick()
+        rootView.findViewById<CategoryTabsView>(R.id.category_tabs)?.showUnreadOnlyConversations()
     }
 
     private fun captureExpandedSize() {
