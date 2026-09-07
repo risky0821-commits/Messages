@@ -76,6 +76,12 @@ abstract class BaseConversationsAdapter(
         submitList(newConversations.toList(), commitCallback)
     }
 
+    fun refreshVisualIndicators() {
+        if (itemCount > 0) {
+            notifyItemRangeChanged(0, itemCount)
+        }
+    }
+
     @SuppressLint("NotifyDataSetChanged")
     fun updateDrafts() {
         ensureBackgroundThread {
