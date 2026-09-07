@@ -73,7 +73,7 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
         categoriesScroll.apply {
             isHorizontalScrollBarEnabled = false
             clipToPadding = false
-            fillViewport = false
+            isFillViewport = false
             addView(
                 categoriesRow,
                 LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT),
