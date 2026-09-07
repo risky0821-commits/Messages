@@ -47,7 +47,7 @@
                     android:layout_height="wrap_content"
                     android:layout_below="@id/conversations_progress_bar"
                     android:layout_marginStart="@dimen/activity_margin"
-                    android:layout_marginTop="@dimen/medium_margin"
+                    android:layout_marginTop="40dp"
                     android:layout_marginEnd="@dimen/activity_margin" />
 
                 <org.fossify.messages.views.CategoryTabsView
