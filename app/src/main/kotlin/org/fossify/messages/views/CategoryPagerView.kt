@@ -3,6 +3,7 @@ package org.fossify.messages.views
 import android.content.Context
 import android.content.Intent
 import android.util.AttributeSet
+import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -48,7 +49,7 @@ class CategoryPagerView @JvmOverloads constructor(
         pager.offscreenPageLimit = 1
         pager.adapter = pageAdapter
         pager.setPageTransformer { page, position ->
-            page.alpha = 1f - (kotlin.math.abs(position) * 0.04f).coerceAtMost(0.04f)
+            page.alpha = 1f - (kotlin.math.abs(position) * 0.035f).coerceAtMost(0.035f)
         }
         pager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
@@ -128,7 +129,8 @@ class CategoryPagerView @JvmOverloads constructor(
             post {
                 pages = built
                 pageAdapter.notifyDataSetChanged()
-                val target = pages.indexOfFirst { it.categoryId == requestedCategoryId }.let { if (it >= 0) it else 0 }
+                val target = pages.indexOfFirst { it.categoryId == requestedCategoryId }
+                    .let { if (it >= 0) it else 0 }
                 if (pager.currentItem != target) {
                     pager.setCurrentItem(target, false)
                 }
@@ -145,6 +147,10 @@ class CategoryPagerView @JvmOverloads constructor(
     private inner class PagesAdapter : RecyclerView.Adapter<PageHolder>() {
         override fun getItemCount(): Int = pages.size
 
+        override fun getItemId(position: Int): Long {
+            return pages.getOrNull(position)?.categoryId ?: Long.MIN_VALUE
+        }
+
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PageHolder {
             val recycler = MyRecyclerView(parent.context).apply {
                 layoutParams = ViewGroup.LayoutParams(
@@ -154,8 +160,15 @@ class CategoryPagerView @JvmOverloads constructor(
                 layoutManager = LinearLayoutManager(parent.context)
                 clipToPadding = false
                 overScrollMode = OVER_SCROLL_NEVER
+                itemAnimator = null
                 setPadding(0, dp(2), 0, dp(20))
             }
+            recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    rootView.findViewById<OneUiUnreadSummaryView>(R.id.unread_summary_card)
+                        ?.onConversationScrolled(dy, recyclerView.canScrollVertically(-1))
+                }
+            })
             return PageHolder(recycler)
         }
 
