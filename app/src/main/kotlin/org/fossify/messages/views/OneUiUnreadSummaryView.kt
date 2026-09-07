@@ -3,9 +3,11 @@ package org.fossify.messages.views
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.View
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
@@ -13,9 +15,12 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.color.MaterialColors
 import kotlin.math.roundToInt
+import org.fossify.commons.extensions.getProperPrimaryColor
+import org.fossify.commons.extensions.getProperTextColor
 import org.fossify.commons.helpers.ensureBackgroundThread
 import org.fossify.messages.R
 import org.fossify.messages.extensions.categoriesDB
+import org.fossify.messages.extensions.getCategoryUnreadCounts
 import org.fossify.messages.extensions.getTotalUnreadCount
 import org.fossify.messages.models.Events
 import org.greenrobot.eventbus.EventBus
@@ -27,11 +32,10 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
     attrs: AttributeSet? = null,
 ) : MaterialCardView(context, attrs) {
 
-    private val categoryTitleText = TextView(context)
     private val summaryText = TextView(context)
+    private val categoriesRow = LinearLayout(context)
+    private val categoriesScroll = HorizontalScrollView(context)
     private val actionText = TextView(context)
-    private var activeCategoryId: Long? = null
-    private var activeCategoryTitle: String? = null
     private var registeredToBus = false
     private var recyclerAttached = false
     private var expandedHeight = 0
@@ -51,23 +55,28 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
             gravity = Gravity.CENTER
         }
 
-        categoryTitleText.apply {
-            gravity = Gravity.CENTER
-            textSize = 18f
-            setTypeface(typeface, Typeface.BOLD)
-            visibility = View.GONE
-            alpha = 0.82f
-            setTextColor(
-                MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurface, Color.WHITE)
-            )
-        }
-
         summaryText.apply {
             gravity = Gravity.CENTER
             textSize = 24f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(
                 MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurface, Color.WHITE)
+            )
+        }
+
+        categoriesRow.apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(2), 0, dp(2), 0)
+        }
+
+        categoriesScroll.apply {
+            isHorizontalScrollBarEnabled = false
+            clipToPadding = false
+            fillViewport = false
+            addView(
+                categoriesRow,
+                LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT),
             )
         }
 
@@ -80,8 +89,8 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
             setTextColor(
                 MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurface, Color.WHITE)
             )
-            background = android.graphics.drawable.GradientDrawable().apply {
-                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
                 cornerRadius = dp(23).toFloat()
                 setColor(
                     MaterialColors.getColor(
@@ -95,13 +104,6 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
         }
 
         content.addView(
-            categoryTitleText,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { bottomMargin = dp(8) },
-        )
-        content.addView(
             summaryText,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -109,11 +111,18 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
             ),
         )
         content.addView(
+            categoriesScroll,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(48),
+            ).apply { topMargin = dp(18) },
+        )
+        content.addView(
             actionText,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { topMargin = dp(18) },
+            ).apply { topMargin = dp(16) },
         )
         addView(content)
     }
@@ -128,7 +137,7 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
             captureExpandedSize()
             attachRecyclerScroll()
         }
-        refreshUnreadCount()
+        refreshSummary()
     }
 
     override fun onDetachedFromWindow() {
@@ -141,31 +150,68 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     fun onConversationsChanged(event: Events.RefreshConversations) {
-        refreshUnreadCount()
+        refreshSummary()
     }
 
+    // Kept for compatibility with CategoryTabsView; the summary now always shows every category.
     fun setCategorySummary(categoryId: Long?, title: String?) {
-        activeCategoryId = categoryId
-        activeCategoryTitle = title
-        refreshUnreadCount()
+        refreshSummary()
     }
 
-    private fun refreshUnreadCount() {
+    fun refreshSummary() {
         ensureBackgroundThread {
-            val categoryId = activeCategoryId
-            val unread = if (categoryId == null) {
-                context.getTotalUnreadCount()
-            } else {
-                context.categoriesDB.getUnreadCount(categoryId)
-            }
-            val title = activeCategoryTitle
+            val totalUnread = context.getTotalUnreadCount()
+            val categories = context.categoriesDB.getCategories()
+            val unreadCounts = context.getCategoryUnreadCounts()
 
             post {
-                categoryTitleText.visibility = if (title.isNullOrBlank()) View.GONE else View.VISIBLE
-                categoryTitleText.text = title.orEmpty()
-                summaryText.text = context.getString(R.string.unread_messages_summary, unread)
-                actionText.visibility = if (unread > 0) View.VISIBLE else View.GONE
+                summaryText.text = context.getString(R.string.unread_messages_summary, totalUnread)
+                actionText.visibility = if (totalUnread > 0) View.VISIBLE else View.GONE
+
+                categoriesRow.removeAllViews()
+                categories.forEach { category ->
+                    val unread = unreadCounts[category.id] ?: 0
+                    categoriesRow.addView(
+                        makeCategoryChip(
+                            title = category.name,
+                            unreadCount = unread,
+                            categoryId = category.id,
+                        )
+                    )
+                }
+                categoriesScroll.visibility = if (categories.isEmpty()) View.GONE else View.VISIBLE
             }
+        }
+    }
+
+    private fun makeCategoryChip(title: String, unreadCount: Int, categoryId: Long): TextView {
+        val primary = context.getProperPrimaryColor()
+        val textColor = context.getProperTextColor()
+        val label = "$title  $unreadCount"
+
+        return TextView(context).apply {
+            text = label
+            gravity = Gravity.CENTER
+            textSize = 14f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(textColor)
+            minHeight = dp(38)
+            setPadding(dp(16), dp(8), dp(16), dp(8))
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(19).toFloat()
+                setColor(Color.TRANSPARENT)
+                setStroke(dp(1), withAlpha(primary, 150))
+            }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                rootView.findViewById<CategoryTabsView>(R.id.category_tabs)?.selectCategory(categoryId)
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { marginEnd = dp(8) }
         }
     }
 
@@ -223,6 +269,10 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
         translationY = -dp(24) * progress
         scaleX = 1f - (0.16f * progress)
         scaleY = 1f - (0.16f * progress)
+    }
+
+    private fun withAlpha(color: Int, alpha: Int): Int {
+        return Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color))
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
