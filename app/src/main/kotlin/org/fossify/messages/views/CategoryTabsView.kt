@@ -98,6 +98,13 @@ class CategoryTabsView @JvmOverloads constructor(
         refreshTabsAndList()
     }
 
+    fun selectCategory(categoryId: Long) {
+        if (currentCategories.none { it.id == categoryId }) return
+        showUnreadOnly = false
+        selectedCategoryId = categoryId
+        refreshTabsAndList()
+    }
+
     fun refreshTabsAndList() {
         ensureBackgroundThread {
             val categories = context.categoriesDB.getCategories()
@@ -128,17 +135,11 @@ class CategoryTabsView @JvmOverloads constructor(
 
                 tabs.addView(makeSearchButton())
                 tabs.addView(makeAddButton())
-                updateSummaryCard()
+                rootView.findViewById<OneUiUnreadSummaryView>(R.id.unread_summary_card)?.refreshSummary()
                 applyCurrentSelectionIfPossible(allConversations)
                 scrollSelectedTabIntoView()
             }
         }
-    }
-
-    private fun updateSummaryCard() {
-        val summary = rootView.findViewById<OneUiUnreadSummaryView>(R.id.unread_summary_card) ?: return
-        val category = currentCategories.firstOrNull { it.id == selectedCategoryId }
-        summary.setCategorySummary(category?.id, category?.name)
     }
 
     private fun attachSwipeNavigation() {
