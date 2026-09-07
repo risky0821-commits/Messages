@@ -9,12 +9,10 @@ import android.view.Gravity
 import android.view.View
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
-import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.color.MaterialColors
-import kotlin.math.roundToInt
 import org.fossify.commons.extensions.getProperPrimaryColor
 import org.fossify.commons.extensions.getProperTextColor
 import org.fossify.commons.helpers.ensureBackgroundThread
@@ -38,8 +36,6 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
     private val actionText = TextView(context)
     private var registeredToBus = false
     private var recyclerAttached = false
-    private var expandedHeight = 0
-    private var expandedTopMargin = 0
     private var collapseOffset = 0f
 
     init {
@@ -74,10 +70,8 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
             isHorizontalScrollBarEnabled = false
             clipToPadding = false
             isFillViewport = false
-            addView(
-                categoriesRow,
-                LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT),
-            )
+            overScrollMode = View.OVER_SCROLL_NEVER
+            addView(categoriesRow, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
         }
 
         actionText.apply {
@@ -103,26 +97,14 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
             setOnClickListener { openUnreadFilter() }
         }
 
-        content.addView(
-            summaryText,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ),
-        )
+        content.addView(summaryText, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         content.addView(
             categoriesScroll,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(48),
-            ).apply { topMargin = dp(18) },
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(48)).apply { topMargin = dp(18) },
         )
         content.addView(
             actionText,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { topMargin = dp(16) },
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(16) },
         )
         addView(content)
     }
@@ -133,10 +115,7 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
             EventBus.getDefault().register(this)
             registeredToBus = true
         }
-        post {
-            captureExpandedSize()
-            attachRecyclerScroll()
-        }
+        post { attachRecyclerScroll() }
         refreshSummary()
     }
 
@@ -153,7 +132,6 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
         refreshSummary()
     }
 
-    // Kept for compatibility with CategoryTabsView; the summary now always shows every category.
     fun setCategorySummary(categoryId: Long?, title: String?) {
         refreshSummary()
     }
@@ -167,14 +145,12 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
             post {
                 summaryText.text = context.getString(R.string.unread_messages_summary, totalUnread)
                 actionText.visibility = if (totalUnread > 0) View.VISIBLE else View.GONE
-
                 categoriesRow.removeAllViews()
                 categories.forEach { category ->
-                    val unread = unreadCounts[category.id] ?: 0
                     categoriesRow.addView(
                         makeCategoryChip(
                             title = category.name,
-                            unreadCount = unread,
+                            unreadCount = unreadCounts[category.id] ?: 0,
                             categoryId = category.id,
                         )
                     )
@@ -186,15 +162,12 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
 
     private fun makeCategoryChip(title: String, unreadCount: Int, categoryId: Long): TextView {
         val primary = context.getProperPrimaryColor()
-        val textColor = context.getProperTextColor()
-        val label = "$title  $unreadCount"
-
         return TextView(context).apply {
-            text = label
+            text = "$title  $unreadCount"
             gravity = Gravity.CENTER
             textSize = 14f
             setTypeface(typeface, Typeface.BOLD)
-            setTextColor(textColor)
+            setTextColor(context.getProperTextColor())
             minHeight = dp(38)
             setPadding(dp(16), dp(8), dp(16), dp(8))
             background = GradientDrawable().apply {
@@ -203,15 +176,12 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
                 setColor(Color.TRANSPARENT)
                 setStroke(dp(1), withAlpha(primary, 150))
             }
-            isClickable = true
-            isFocusable = true
             setOnClickListener {
                 rootView.findViewById<CategoryTabsView>(R.id.category_tabs)?.selectCategory(categoryId)
             }
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { marginEnd = dp(8) }
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                marginEnd = dp(8)
+            }
         }
     }
 
@@ -219,56 +189,38 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
         rootView.findViewById<CategoryTabsView>(R.id.category_tabs)?.showUnreadOnlyConversations()
     }
 
-    private fun captureExpandedSize() {
-        if (expandedHeight != 0 || height <= 0) return
-        expandedHeight = height
-        expandedTopMargin = (layoutParams as? RelativeLayout.LayoutParams)?.topMargin ?: 0
-        applyCollapseProgress()
-    }
-
     private fun attachRecyclerScroll() {
         if (recyclerAttached) return
         val recycler = rootView.findViewById<RecyclerView>(R.id.conversations_list) ?: return
+        val inboxCard = rootView.findViewById<View>(R.id.inbox_card) ?: return
         recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                if (expandedHeight <= 0) {
-                    captureExpandedSize()
-                    return
-                }
-
+                val distance = collapseDistance()
                 if (!recyclerView.canScrollVertically(-1) && dy <= 0) {
                     collapseOffset = 0f
                 } else {
-                    collapseOffset = (collapseOffset + dy).coerceIn(0f, collapseDistance())
+                    collapseOffset = (collapseOffset + dy).coerceIn(0f, distance)
                 }
-                applyCollapseProgress()
+                applyCollapseProgress(inboxCard, distance)
             }
         })
         recyclerAttached = true
     }
 
-    private fun collapseDistance(): Float = (expandedHeight + expandedTopMargin).coerceAtLeast(1).toFloat()
+    private fun collapseDistance(): Float = dp(210).toFloat()
 
-    private fun applyCollapseProgress() {
-        if (expandedHeight <= 0) return
-        val rawProgress = (collapseOffset / collapseDistance()).coerceIn(0f, 1f)
-        val progress = rawProgress * rawProgress * (3f - 2f * rawProgress)
-        val params = layoutParams as? RelativeLayout.LayoutParams ?: return
-
-        val newHeight = (expandedHeight * (1f - progress)).roundToInt().coerceAtLeast(0)
-        val newTopMargin = (expandedTopMargin * (1f - progress)).roundToInt().coerceAtLeast(0)
-        if (params.height != newHeight || params.topMargin != newTopMargin) {
-            params.height = newHeight
-            params.topMargin = newTopMargin
-            layoutParams = params
-        }
+    private fun applyCollapseProgress(inboxCard: View, distance: Float) {
+        val raw = (collapseOffset / distance).coerceIn(0f, 1f)
+        val progress = raw * raw * (3f - 2f * raw)
 
         pivotX = width / 2f
         pivotY = height / 2f
-        alpha = (1f - progress * 1.08f).coerceIn(0f, 1f)
-        translationY = -dp(24) * progress
-        scaleX = 1f - (0.16f * progress)
-        scaleY = 1f - (0.16f * progress)
+        alpha = (1f - progress * 1.05f).coerceIn(0f, 1f)
+        translationY = -dp(36) * progress
+        scaleX = 1f - (0.18f * progress)
+        scaleY = 1f - (0.18f * progress)
+
+        inboxCard.translationY = -(dp(218) * progress)
     }
 
     private fun withAlpha(color: Int, alpha: Int): Int {
