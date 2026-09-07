@@ -7,10 +7,10 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.util.AttributeSet
-import android.view.GestureDetector
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.HorizontalScrollView
@@ -151,43 +151,102 @@ class CategoryTabsView @JvmOverloads constructor(
     private fun attachSwipeNavigation() {
         if (swipeNavigationAttached) return
         val recycler = rootView.findViewById<RecyclerView>(R.id.conversations_list) ?: return
-        val detector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onDown(e: MotionEvent): Boolean = true
+        val inboxCard = rootView.findViewById<View>(R.id.inbox_card) ?: return
+        val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
 
-            override fun onFling(
-                e1: MotionEvent?,
-                e2: MotionEvent,
-                velocityX: Float,
-                velocityY: Float,
-            ): Boolean {
-                if (e1 == null) return false
-                val deltaX = e2.x - e1.x
-                val deltaY = e2.y - e1.y
-                val isHorizontalSwipe = abs(deltaX) >= dp(72) &&
-                    abs(deltaX) > abs(deltaY) * 1.2f &&
-                    abs(velocityX) >= 450f
-                if (!isHorizontalSwipe) return false
+        var downX = 0f
+        var downY = 0f
+        var horizontalDrag = false
 
-                var step = if (deltaX < 0f) 1 else -1
-                if (layoutDirection == View.LAYOUT_DIRECTION_RTL) {
-                    step *= -1
+        recycler.setOnTouchListener { view, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downX = event.x
+                    downY = event.y
+                    horizontalDrag = false
+                    inboxCard.animate().cancel()
+                    false
                 }
-                moveSelection(step)
-                return true
-            }
-        })
 
-        recycler.setOnTouchListener { _, event ->
-            detector.onTouchEvent(event)
-            false
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = event.x - downX
+                    val dy = event.y - downY
+                    if (!horizontalDrag && abs(dx) > touchSlop && abs(dx) > abs(dy) * 1.25f) {
+                        horizontalDrag = true
+                        view.parent?.requestDisallowInterceptTouchEvent(true)
+                    }
+
+                    if (horizontalDrag) {
+                        inboxCard.translationX = dx * 0.78f
+                        inboxCard.alpha = 1f - (abs(dx) / (recycler.width.coerceAtLeast(1) * 2.4f)).coerceIn(0f, 0.18f)
+                        true
+                    } else {
+                        false
+                    }
+                }
+
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (!horizontalDrag) {
+                        false
+                    } else {
+                        view.parent?.requestDisallowInterceptTouchEvent(false)
+                        val dx = event.x - downX
+                        val threshold = recycler.width * 0.20f
+                        val logicalStep = logicalStepForDx(dx)
+                        val canMove = canMove(logicalStep)
+
+                        if (event.actionMasked == MotionEvent.ACTION_UP && abs(dx) >= threshold && canMove) {
+                            val exitX = if (dx < 0f) -recycler.width.toFloat() else recycler.width.toFloat()
+                            inboxCard.animate()
+                                .translationX(exitX)
+                                .alpha(0.72f)
+                                .setDuration(150L)
+                                .withEndAction {
+                                    moveSelection(logicalStep)
+                                    inboxCard.translationX = -exitX * 0.18f
+                                    inboxCard.alpha = 0.86f
+                                    inboxCard.animate()
+                                        .translationX(0f)
+                                        .alpha(1f)
+                                        .setDuration(190L)
+                                        .start()
+                                }
+                                .start()
+                        } else {
+                            inboxCard.animate()
+                                .translationX(0f)
+                                .alpha(1f)
+                                .setDuration(180L)
+                                .start()
+                        }
+                        horizontalDrag = false
+                        true
+                    }
+                }
+
+                else -> false
+            }
         }
         swipeNavigationAttached = true
     }
 
-    private fun moveSelection(step: Int) {
+    private fun logicalStepForDx(dx: Float): Int {
+        var step = if (dx < 0f) 1 else -1
+        if (layoutDirection == View.LAYOUT_DIRECTION_RTL) {
+            step *= -1
+        }
+        return step
+    }
+
+    private fun canMove(step: Int): Boolean {
         val totalItems = currentCategories.size + 2
-        if (totalItems <= 1) return
-        val currentIndex = when {
+        val currentIndex = currentSelectionIndex()
+        val targetIndex = currentIndex + step
+        return targetIndex in 0 until totalItems
+    }
+
+    private fun currentSelectionIndex(): Int {
+        return when {
             showUnreadOnly -> 1
             selectedCategoryId == null -> 0
             else -> {
@@ -195,6 +254,12 @@ class CategoryTabsView @JvmOverloads constructor(
                 if (categoryIndex >= 0) categoryIndex + 2 else 0
             }
         }
+    }
+
+    private fun moveSelection(step: Int) {
+        val totalItems = currentCategories.size + 2
+        if (totalItems <= 1) return
+        val currentIndex = currentSelectionIndex()
         val targetIndex = (currentIndex + step).coerceIn(0, totalItems - 1)
         if (targetIndex == currentIndex) return
 
@@ -216,12 +281,7 @@ class CategoryTabsView @JvmOverloads constructor(
     }
 
     private fun scrollSelectedTabIntoView() {
-        val selectedIndex = when {
-            showUnreadOnly -> 1
-            selectedCategoryId == null -> 0
-            else -> currentCategories.indexOfFirst { it.id == selectedCategoryId }
-                .takeIf { it >= 0 }?.plus(2) ?: 0
-        }
+        val selectedIndex = currentSelectionIndex()
         val selectedView = tabs.getChildAt(selectedIndex) ?: return
         post {
             val targetX = selectedView.left - dp(12)
