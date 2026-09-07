@@ -12,6 +12,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
+import android.view.animation.DecelerateInterpolator
 import android.widget.EditText
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
@@ -59,6 +60,7 @@ class CategoryTabsView @JvmOverloads constructor(
     init {
         isHorizontalScrollBarEnabled = false
         clipToPadding = false
+        overScrollMode = View.OVER_SCROLL_NEVER
         addView(tabs)
     }
 
@@ -134,6 +136,7 @@ class CategoryTabsView @JvmOverloads constructor(
                 }
 
                 tabs.addView(makeSearchButton())
+                tabs.addView(makeOverflowButton())
                 tabs.addView(makeAddButton())
                 rootView.findViewById<OneUiUnreadSummaryView>(R.id.unread_summary_card)?.refreshSummary()
                 applyCurrentSelectionIfPossible(allConversations)
@@ -145,8 +148,9 @@ class CategoryTabsView @JvmOverloads constructor(
     private fun attachSwipeNavigation() {
         if (swipeNavigationAttached) return
         val recycler = rootView.findViewById<RecyclerView>(R.id.conversations_list) ?: return
-        val inboxCard = rootView.findViewById<View>(R.id.inbox_card) ?: return
+        val contentArea = rootView.findViewById<View>(R.id.conversations_fastscroller) ?: return
         val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+        val interpolator = DecelerateInterpolator(1.8f)
 
         var downX = 0f
         var downY = 0f
@@ -158,21 +162,23 @@ class CategoryTabsView @JvmOverloads constructor(
                     downX = event.x
                     downY = event.y
                     horizontalDrag = false
-                    inboxCard.animate().cancel()
+                    contentArea.animate().cancel()
                     false
                 }
 
                 MotionEvent.ACTION_MOVE -> {
                     val dx = event.x - downX
                     val dy = event.y - downY
-                    if (!horizontalDrag && abs(dx) > touchSlop && abs(dx) > abs(dy) * 1.25f) {
+                    if (!horizontalDrag && abs(dx) > touchSlop * 1.35f && abs(dx) > abs(dy) * 1.55f) {
                         horizontalDrag = true
                         view.parent?.requestDisallowInterceptTouchEvent(true)
                     }
 
                     if (horizontalDrag) {
-                        inboxCard.translationX = dx * 0.78f
-                        inboxCard.alpha = 1f - (abs(dx) / (recycler.width.coerceAtLeast(1) * 2.4f)).coerceIn(0f, 0.18f)
+                        val maxDrag = recycler.width * 0.55f
+                        val damped = dx.coerceIn(-maxDrag, maxDrag) * 0.72f
+                        contentArea.translationX = damped
+                        contentArea.alpha = 1f - (abs(damped) / maxDrag * 0.10f)
                         true
                     } else {
                         false
@@ -185,32 +191,36 @@ class CategoryTabsView @JvmOverloads constructor(
                     } else {
                         view.parent?.requestDisallowInterceptTouchEvent(false)
                         val dx = event.x - downX
-                        val threshold = recycler.width * 0.20f
+                        val threshold = recycler.width * 0.18f
                         val logicalStep = logicalStepForDx(dx)
                         val canMove = canMove(logicalStep)
 
                         if (event.actionMasked == MotionEvent.ACTION_UP && abs(dx) >= threshold && canMove) {
-                            val exitX = if (dx < 0f) -recycler.width.toFloat() else recycler.width.toFloat()
-                            inboxCard.animate()
+                            val direction = if (dx < 0f) -1f else 1f
+                            val exitX = direction * recycler.width * 0.34f
+                            contentArea.animate()
                                 .translationX(exitX)
-                                .alpha(0.72f)
-                                .setDuration(150L)
+                                .alpha(0.88f)
+                                .setInterpolator(interpolator)
+                                .setDuration(130L)
                                 .withEndAction {
                                     moveSelection(logicalStep)
-                                    inboxCard.translationX = -exitX * 0.18f
-                                    inboxCard.alpha = 0.86f
-                                    inboxCard.animate()
+                                    contentArea.translationX = -direction * recycler.width * 0.16f
+                                    contentArea.alpha = 0.92f
+                                    contentArea.animate()
                                         .translationX(0f)
                                         .alpha(1f)
-                                        .setDuration(190L)
+                                        .setInterpolator(interpolator)
+                                        .setDuration(170L)
                                         .start()
                                 }
                                 .start()
                         } else {
-                            inboxCard.animate()
+                            contentArea.animate()
                                 .translationX(0f)
                                 .alpha(1f)
-                                .setDuration(180L)
+                                .setInterpolator(interpolator)
+                                .setDuration(150L)
                                 .start()
                         }
                         horizontalDrag = false
@@ -226,16 +236,13 @@ class CategoryTabsView @JvmOverloads constructor(
 
     private fun logicalStepForDx(dx: Float): Int {
         var step = if (dx < 0f) 1 else -1
-        if (layoutDirection == View.LAYOUT_DIRECTION_RTL) {
-            step *= -1
-        }
+        if (layoutDirection == View.LAYOUT_DIRECTION_RTL) step *= -1
         return step
     }
 
     private fun canMove(step: Int): Boolean {
         val totalItems = currentCategories.size + 1
-        val targetIndex = currentSelectionIndex() + step
-        return targetIndex in 0 until totalItems
+        return currentSelectionIndex() + step in 0 until totalItems
     }
 
     private fun currentSelectionIndex(): Int {
@@ -247,9 +254,8 @@ class CategoryTabsView @JvmOverloads constructor(
     private fun moveSelection(step: Int) {
         val totalItems = currentCategories.size + 1
         if (totalItems <= 1) return
-        val currentIndex = currentSelectionIndex()
-        val targetIndex = (currentIndex + step).coerceIn(0, totalItems - 1)
-        if (targetIndex == currentIndex) return
+        val targetIndex = (currentSelectionIndex() + step).coerceIn(0, totalItems - 1)
+        if (targetIndex == currentSelectionIndex()) return
 
         if (targetIndex == 0) {
             showUnreadOnly = false
@@ -267,10 +273,7 @@ class CategoryTabsView @JvmOverloads constructor(
         val selectedIndex = currentCategories.indexOfFirst { it.id == categoryId }
         if (selectedIndex < 0) return
         val selectedView = tabs.getChildAt(selectedIndex) ?: return
-        post {
-            val targetX = selectedView.left - dp(14)
-            smoothScrollTo(targetX.coerceAtLeast(0), 0)
-        }
+        post { smoothScrollTo((selectedView.left - dp(14)).coerceAtLeast(0), 0) }
     }
 
     private fun applySelectedCategory(categoryId: Long) {
@@ -286,24 +289,19 @@ class CategoryTabsView @JvmOverloads constructor(
             applyConversationFilter(allConversations.filter { !it.read })
             return
         }
-
         val categoryId = selectedCategoryId
-        if (categoryId == null) {
-            applyConversationFilter(allConversations)
-            return
-        }
-        applySelectedCategory(categoryId)
+        if (categoryId == null) applyConversationFilter(allConversations) else applySelectedCategory(categoryId)
     }
 
     private fun applyConversationFilter(conversations: List<Conversation>) {
         val recycler = rootView.findViewById<RecyclerView>(R.id.conversations_list) ?: return
         val adapter = recycler.adapter as? BaseConversationsAdapter ?: return
-        val sortedConversations = conversations.sortedWith(
+        val sorted = conversations.sortedWith(
             compareByDescending<Conversation> {
                 context.config.pinnedConversations.contains(it.threadId.toString())
             }.thenByDescending { it.date }
         )
-        adapter.updateConversations(ArrayList(sortedConversations))
+        adapter.updateConversations(ArrayList(sorted))
     }
 
     private fun makeTab(
@@ -315,31 +313,20 @@ class CategoryTabsView @JvmOverloads constructor(
     ): TextView {
         val label = if (unreadCount > 0) "$title  $unreadCount" else title
         val primary = context.getProperPrimaryColor()
-        val textColor = if (selected) contrastTextColor(primary) else context.getProperTextColor()
-
         return TextView(context).apply {
             text = label
             gravity = Gravity.CENTER
             minHeight = dp(38)
             setPadding(dp(16), dp(8), dp(16), dp(8))
-            setTextColor(textColor)
+            setTextColor(if (selected) contrastTextColor(primary) else context.getProperTextColor())
             setTypeface(typeface, if (selected) Typeface.BOLD else Typeface.NORMAL)
             textSize = 14f
-            background = pillBackground(selected = selected, primary = primary)
+            background = pillBackground(selected, primary)
             isClickable = true
             isFocusable = true
-            elevation = if (selected) dp(1).toFloat() else 0f
             setOnClickListener { onClick() }
-            if (onLongClick != null) {
-                setOnLongClickListener {
-                    onLongClick()
-                    true
-                }
-            }
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-            ).apply {
+            if (onLongClick != null) setOnLongClickListener { onLongClick(); true }
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 marginEnd = dp(8)
             }
         }
@@ -352,13 +339,28 @@ class CategoryTabsView @JvmOverloads constructor(
             setColorFilter(context.getProperTextColor())
             contentDescription = context.getString(org.fossify.commons.R.string.search)
             setPadding(dp(10), dp(10), dp(10), dp(10))
-            background = pillBackground(selected = false, primary = primary)
-            isClickable = true
-            isFocusable = true
+            background = pillBackground(false, primary)
             setOnClickListener { openCompactSearch() }
-            layoutParams = LinearLayout.LayoutParams(dp(38), dp(38)).apply {
-                marginEnd = dp(8)
+            layoutParams = LinearLayout.LayoutParams(dp(38), dp(38)).apply { marginEnd = dp(8) }
+        }
+    }
+
+    private fun makeOverflowButton(): TextView {
+        val primary = context.getProperPrimaryColor()
+        return TextView(context).apply {
+            text = "⋮"
+            gravity = Gravity.CENTER
+            textSize = 22f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(context.getProperTextColor())
+            contentDescription = context.getString(org.fossify.commons.R.string.more)
+            background = pillBackground(false, primary)
+            setOnClickListener {
+                val menu = rootView.findViewById<MySearchMenu>(R.id.main_menu) ?: return@setOnClickListener
+                menu.visibility = View.INVISIBLE
+                menu.requireToolbar().showOverflowMenu()
             }
+            layoutParams = LinearLayout.LayoutParams(dp(38), dp(38)).apply { marginEnd = dp(8) }
         }
     }
 
@@ -368,15 +370,10 @@ class CategoryTabsView @JvmOverloads constructor(
             val previousCloseListener = menu.onSearchClosedListener
             menu.onSearchClosedListener = {
                 previousCloseListener?.invoke()
-                menu.animate()
-                    .alpha(0f)
-                    .setDuration(100L)
-                    .withEndAction { menu.visibility = View.GONE }
-                    .start()
+                menu.animate().alpha(0f).setDuration(100L).withEndAction { menu.visibility = View.GONE }.start()
             }
             menu.tag = COMPACT_SEARCH_TAG
         }
-
         menu.visibility = View.VISIBLE
         menu.alpha = 0f
         menu.animate().alpha(1f).setDuration(120L).start()
@@ -394,34 +391,24 @@ class CategoryTabsView @JvmOverloads constructor(
             setTextColor(primary)
             textSize = 20f
             setTypeface(typeface, Typeface.BOLD)
-            background = pillBackground(selected = false, primary = primary)
-            isClickable = true
-            isFocusable = true
+            background = pillBackground(false, primary)
             setOnClickListener { showCreateCategoryDialog() }
         }
     }
 
-    private fun pillBackground(selected: Boolean, primary: Int): GradientDrawable {
-        return GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = dp(18).toFloat()
-            if (selected) {
-                setColor(primary)
-            } else {
-                setColor(Color.TRANSPARENT)
-                setStroke(dp(1), withAlpha(context.getProperTextColor(), 54))
-            }
+    private fun pillBackground(selected: Boolean, primary: Int): GradientDrawable = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        cornerRadius = dp(18).toFloat()
+        if (selected) setColor(primary) else {
+            setColor(Color.TRANSPARENT)
+            setStroke(dp(1), withAlpha(context.getProperTextColor(), 54))
         }
     }
 
-    private fun withAlpha(color: Int, alpha: Int): Int {
-        return Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color))
-    }
+    private fun withAlpha(color: Int, alpha: Int): Int = Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color))
 
     private fun contrastTextColor(background: Int): Int {
-        val luminance = (0.299 * Color.red(background)) +
-            (0.587 * Color.green(background)) +
-            (0.114 * Color.blue(background))
+        val luminance = (0.299 * Color.red(background)) + (0.587 * Color.green(background)) + (0.114 * Color.blue(background))
         return if (luminance > 160) Color.BLACK else Color.WHITE
     }
 
@@ -431,30 +418,22 @@ class CategoryTabsView @JvmOverloads constructor(
             setSingleLine(true)
             setPadding(dp(16), dp(8), dp(16), dp(8))
         }
-
         AlertDialog.Builder(context)
             .setTitle(R.string.create_category)
             .setView(input)
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 val name = input.text?.toString()?.trim().orEmpty()
-                if (name.isNotEmpty()) {
-                    ensureBackgroundThread {
-                        runCatching {
-                            context.createMessageCategory(name, context.categoriesDB.getCategories().size)
-                        }
-                        post { refreshTabsAndList() }
-                    }
+                if (name.isNotEmpty()) ensureBackgroundThread {
+                    runCatching { context.createMessageCategory(name, context.categoriesDB.getCategories().size) }
+                    post { refreshTabsAndList() }
                 }
             }
             .show()
     }
 
     private fun showManageCategoryDialog(category: MessageCategory) {
-        val options = arrayOf(
-            context.getString(R.string.rename_category),
-            context.getString(R.string.delete_category),
-        )
+        val options = arrayOf(context.getString(R.string.rename_category), context.getString(R.string.delete_category))
         AlertDialog.Builder(context)
             .setTitle(category.name)
             .setItems(options) { _, which ->
@@ -479,11 +458,9 @@ class CategoryTabsView @JvmOverloads constructor(
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 val name = input.text?.toString()?.trim().orEmpty()
-                if (name.isNotEmpty()) {
-                    ensureBackgroundThread {
-                        runCatching { context.categoriesDB.renameCategory(category.id, name) }
-                        post { refreshTabsAndList() }
-                    }
+                if (name.isNotEmpty()) ensureBackgroundThread {
+                    runCatching { context.categoriesDB.renameCategory(category.id, name) }
+                    post { refreshTabsAndList() }
                 }
             }
             .show()
@@ -497,9 +474,7 @@ class CategoryTabsView @JvmOverloads constructor(
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 ensureBackgroundThread {
                     context.categoriesDB.deleteCategoryAndMappings(category.id)
-                    if (selectedCategoryId == category.id) {
-                        selectedCategoryId = null
-                    }
+                    if (selectedCategoryId == category.id) selectedCategoryId = null
                     post { refreshTabsAndList() }
                 }
             }
