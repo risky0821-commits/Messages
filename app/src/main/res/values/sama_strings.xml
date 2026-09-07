@@ -2,6 +2,7 @@
 <resources>
     <string name="sama_app_name">Sama</string>
     <string name="category_all">All</string>
+    <string name="category_unread">Unread</string>
     <string name="create_category">Create category</string>
     <string name="category_name_hint">Category name</string>
     <string name="move_to_category">Move to category</string>
@@ -13,4 +14,5 @@
     <string name="no_category">No category</string>
     <string name="mute_conversation">Mute this conversation</string>
     <string name="unmute_conversation">Unmute this conversation</string>
+    <string name="muted_conversation_indicator">Muted conversation</string>
 </resources>
