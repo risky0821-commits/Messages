@@ -44,7 +44,7 @@
                 <org.fossify.messages.views.OneUiUnreadSummaryView
                     android:id="@+id/unread_summary_card"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="250dp"
                     android:layout_below="@id/conversations_progress_bar"
                     android:layout_marginStart="@dimen/activity_margin"
                     android:layout_marginTop="40dp"
