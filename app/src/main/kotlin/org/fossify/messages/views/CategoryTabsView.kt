@@ -3,7 +3,9 @@
 package org.fossify.messages.views
 
 import android.content.Context
+import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.ViewGroup
@@ -38,7 +40,7 @@ class CategoryTabsView @JvmOverloads constructor(
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
-        setPadding(dp(8), dp(4), dp(8), dp(4))
+        setPadding(dp(12), dp(8), dp(12), dp(10))
     }
 
     private var selectedCategoryId: Long? = null
@@ -46,6 +48,7 @@ class CategoryTabsView @JvmOverloads constructor(
 
     init {
         isHorizontalScrollBarEnabled = false
+        clipToPadding = false
         addView(tabs)
     }
 
@@ -147,15 +150,21 @@ class CategoryTabsView @JvmOverloads constructor(
         onLongClick: (() -> Unit)? = null,
     ): TextView {
         val label = if (unreadCount > 0) "$title  $unreadCount" else title
+        val primary = context.getProperPrimaryColor()
+        val textColor = if (selected) contrastTextColor(primary) else context.getProperTextColor()
+
         return TextView(context).apply {
             text = label
             gravity = Gravity.CENTER
-            setPadding(dp(14), dp(8), dp(14), dp(8))
-            setTextColor(if (selected) context.getProperPrimaryColor() else context.getProperTextColor())
+            minHeight = dp(38)
+            setPadding(dp(16), dp(8), dp(16), dp(8))
+            setTextColor(textColor)
             setTypeface(typeface, if (selected) Typeface.BOLD else Typeface.NORMAL)
             textSize = 14f
+            background = pillBackground(selected = selected, primary = primary)
             isClickable = true
             isFocusable = true
+            elevation = if (selected) dp(1).toFloat() else 0f
             setOnClickListener { onClick() }
             if (onLongClick != null) {
                 setOnLongClickListener {
@@ -167,22 +176,51 @@ class CategoryTabsView @JvmOverloads constructor(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
             ).apply {
-                marginEnd = dp(4)
+                marginEnd = dp(8)
             }
         }
     }
 
     private fun makeAddButton(): TextView {
+        val primary = context.getProperPrimaryColor()
         return TextView(context).apply {
             text = "+"
             gravity = Gravity.CENTER
-            setPadding(dp(14), dp(8), dp(14), dp(8))
-            setTextColor(context.getProperPrimaryColor())
+            minWidth = dp(38)
+            minHeight = dp(38)
+            setPadding(dp(10), dp(6), dp(10), dp(6))
+            setTextColor(primary)
             textSize = 20f
+            setTypeface(typeface, Typeface.BOLD)
+            background = pillBackground(selected = false, primary = primary)
             isClickable = true
             isFocusable = true
             setOnClickListener { showCreateCategoryDialog() }
         }
+    }
+
+    private fun pillBackground(selected: Boolean, primary: Int): GradientDrawable {
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(18).toFloat()
+            if (selected) {
+                setColor(primary)
+            } else {
+                setColor(Color.TRANSPARENT)
+                setStroke(dp(1), withAlpha(context.getProperTextColor(), 54))
+            }
+        }
+    }
+
+    private fun withAlpha(color: Int, alpha: Int): Int {
+        return Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color))
+    }
+
+    private fun contrastTextColor(background: Int): Int {
+        val luminance = (0.299 * Color.red(background)) +
+            (0.587 * Color.green(background)) +
+            (0.114 * Color.blue(background))
+        return if (luminance > 160) Color.BLACK else Color.WHITE
     }
 
     private fun showCreateCategoryDialog() {
