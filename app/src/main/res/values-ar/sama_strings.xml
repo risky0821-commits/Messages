@@ -17,4 +17,5 @@
     <string name="mute_conversation">كتم إشعارات هذه المحادثة</string>
     <string name="unmute_conversation">إلغاء كتم إشعارات هذه المحادثة</string>
     <string name="muted_conversation_indicator">محادثة مكتومة</string>
+    <string name="more_options">المزيد من الخيارات</string>
 </resources>
