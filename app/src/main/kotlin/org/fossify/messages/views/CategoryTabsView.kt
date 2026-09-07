@@ -14,6 +14,7 @@ import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.HorizontalScrollView
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
@@ -22,6 +23,7 @@ import kotlin.math.abs
 import org.fossify.commons.extensions.getProperPrimaryColor
 import org.fossify.commons.extensions.getProperTextColor
 import org.fossify.commons.helpers.ensureBackgroundThread
+import org.fossify.commons.views.MySearchMenu
 import org.fossify.messages.R
 import org.fossify.messages.adapters.BaseConversationsAdapter
 import org.fossify.messages.extensions.categoriesDB
@@ -85,7 +87,7 @@ class CategoryTabsView @JvmOverloads constructor(
     }
 
     fun showUnreadOnlyConversations() {
-        showUnreadOnly = true
+        showUnreadOnly = !showUnreadOnly
         selectedCategoryId = null
         refreshTabsAndList()
     }
@@ -124,6 +126,7 @@ class CategoryTabsView @JvmOverloads constructor(
                     )
                 }
 
+                tabs.addView(makeSearchButton())
                 tabs.addView(makeAddButton())
                 applyCurrentSelectionIfPossible(allConversations)
                 scrollSelectedTabIntoView()
@@ -222,7 +225,7 @@ class CategoryTabsView @JvmOverloads constructor(
     }
 
     private fun canMove(step: Int): Boolean {
-        val totalItems = currentCategories.size + 1 // hidden Inbox/All state + custom categories
+        val totalItems = currentCategories.size + 1
         val targetIndex = currentSelectionIndex() + step
         return targetIndex in 0 until totalItems
     }
@@ -332,6 +335,44 @@ class CategoryTabsView @JvmOverloads constructor(
                 marginEnd = dp(8)
             }
         }
+    }
+
+    private fun makeSearchButton(): ImageView {
+        val primary = context.getProperPrimaryColor()
+        return ImageView(context).apply {
+            setImageResource(org.fossify.commons.R.drawable.ic_search_vector)
+            setColorFilter(context.getProperTextColor())
+            contentDescription = context.getString(org.fossify.commons.R.string.search)
+            setPadding(dp(10), dp(10), dp(10), dp(10))
+            background = pillBackground(selected = false, primary = primary)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { openCompactSearch() }
+            layoutParams = LinearLayout.LayoutParams(dp(38), dp(38)).apply {
+                marginEnd = dp(8)
+            }
+        }
+    }
+
+    private fun openCompactSearch() {
+        val menu = rootView.findViewById<MySearchMenu>(R.id.main_menu) ?: return
+        if (menu.tag != COMPACT_SEARCH_TAG) {
+            val previousCloseListener = menu.onSearchClosedListener
+            menu.onSearchClosedListener = {
+                previousCloseListener?.invoke()
+                menu.animate()
+                    .alpha(0f)
+                    .setDuration(100L)
+                    .withEndAction { menu.visibility = View.GONE }
+                    .start()
+            }
+            menu.tag = COMPACT_SEARCH_TAG
+        }
+
+        menu.visibility = View.VISIBLE
+        menu.alpha = 0f
+        menu.animate().alpha(1f).setDuration(120L).start()
+        menu.post { menu.focusView() }
     }
 
     private fun makeAddButton(): TextView {
@@ -458,4 +499,8 @@ class CategoryTabsView @JvmOverloads constructor(
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    companion object {
+        private const val COMPACT_SEARCH_TAG = "sama_compact_search"
+    }
 }
