@@ -20,6 +20,7 @@ import org.fossify.commons.helpers.ensureBackgroundThread
 import org.fossify.messages.R
 import org.fossify.messages.adapters.BaseConversationsAdapter
 import org.fossify.messages.extensions.categoriesDB
+import org.fossify.messages.extensions.config
 import org.fossify.messages.extensions.conversationsDB
 import org.fossify.messages.extensions.createMessageCategory
 import org.fossify.messages.extensions.getCategoryUnreadCounts
@@ -139,7 +140,12 @@ class CategoryTabsView @JvmOverloads constructor(
         val recycler = rootView.findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.conversations_list)
             ?: return
         val adapter = recycler.adapter as? BaseConversationsAdapter ?: return
-        adapter.updateConversations(ArrayList(conversations))
+        val sortedConversations = conversations.sortedWith(
+            compareByDescending<Conversation> {
+                context.config.pinnedConversations.contains(it.threadId.toString())
+            }.thenByDescending { it.date }
+        )
+        adapter.updateConversations(ArrayList(sortedConversations))
     }
 
     private fun makeTab(
