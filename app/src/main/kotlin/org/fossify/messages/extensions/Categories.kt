@@ -3,7 +3,6 @@ package org.fossify.messages.extensions
 import android.content.Context
 import org.fossify.messages.interfaces.CategoriesDao
 import org.fossify.messages.models.CategoryConversation
-import org.fossify.messages.models.CategoryUnread
 import org.fossify.messages.models.MessageCategory
 
 val Context.categoriesDB: CategoriesDao
@@ -32,7 +31,7 @@ fun Context.removeConversationFromCategory(categoryId: Long, threadId: Long) {
 }
 
 fun Context.getCategoryUnreadCounts(): Map<Long, Int> {
-    return categoriesDB.getUnreadCountsByCategory().associate(CategoryUnread::categoryId, CategoryUnread::unreadCount)
+    return categoriesDB.getUnreadCountsByCategory().associate { it.categoryId to it.unreadCount }
 }
 
 fun Context.getTotalUnreadCount(): Int {
