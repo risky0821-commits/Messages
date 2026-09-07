@@ -10,7 +10,6 @@ import android.view.View
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.color.MaterialColors
 import org.fossify.commons.extensions.getProperPrimaryColor
@@ -35,7 +34,6 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
     private val categoriesScroll = HorizontalScrollView(context)
     private val actionText = TextView(context)
     private var registeredToBus = false
-    private var recyclerAttached = false
     private var collapseOffset = 0f
 
     init {
@@ -97,14 +95,26 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
             setOnClickListener { openUnreadFilter() }
         }
 
-        content.addView(summaryText, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        content.addView(
+            summaryText,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ),
+        )
         content.addView(
             categoriesScroll,
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(48)).apply { topMargin = dp(18) },
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(48),
+            ).apply { topMargin = dp(18) },
         )
         content.addView(
             actionText,
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(16) },
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { topMargin = dp(16) },
         )
         addView(content)
     }
@@ -115,7 +125,6 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
             EventBus.getDefault().register(this)
             registeredToBus = true
         }
-        post { attachRecyclerScroll() }
         refreshSummary()
     }
 
@@ -160,6 +169,17 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
         }
     }
 
+    fun onConversationScrolled(dy: Int, canScrollUp: Boolean) {
+        val distance = collapseDistance()
+        collapseOffset = if (!canScrollUp && dy <= 0) {
+            0f
+        } else {
+            (collapseOffset + dy).coerceIn(0f, distance)
+        }
+        val inboxCard = rootView.findViewById<View>(R.id.inbox_card) ?: return
+        applyCollapseProgress(inboxCard, distance)
+    }
+
     private fun makeCategoryChip(title: String, unreadCount: Int, categoryId: Long): TextView {
         val primary = context.getProperPrimaryColor()
         return TextView(context).apply {
@@ -179,32 +199,15 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
             setOnClickListener {
                 rootView.findViewById<CategoryTabsView>(R.id.category_tabs)?.selectCategory(categoryId)
             }
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-                marginEnd = dp(8)
-            }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { marginEnd = dp(8) }
         }
     }
 
     private fun openUnreadFilter() {
         rootView.findViewById<CategoryTabsView>(R.id.category_tabs)?.showUnreadOnlyConversations()
-    }
-
-    private fun attachRecyclerScroll() {
-        if (recyclerAttached) return
-        val recycler = rootView.findViewById<RecyclerView>(R.id.conversations_list) ?: return
-        val inboxCard = rootView.findViewById<View>(R.id.inbox_card) ?: return
-        recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                val distance = collapseDistance()
-                if (!recyclerView.canScrollVertically(-1) && dy <= 0) {
-                    collapseOffset = 0f
-                } else {
-                    collapseOffset = (collapseOffset + dy).coerceIn(0f, distance)
-                }
-                applyCollapseProgress(inboxCard, distance)
-            }
-        })
-        recyclerAttached = true
     }
 
     private fun collapseDistance(): Float = dp(210).toFloat()
