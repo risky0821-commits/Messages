@@ -128,10 +128,17 @@ class CategoryTabsView @JvmOverloads constructor(
 
                 tabs.addView(makeSearchButton())
                 tabs.addView(makeAddButton())
+                updateSummaryCard()
                 applyCurrentSelectionIfPossible(allConversations)
                 scrollSelectedTabIntoView()
             }
         }
+    }
+
+    private fun updateSummaryCard() {
+        val summary = rootView.findViewById<OneUiUnreadSummaryView>(R.id.unread_summary_card) ?: return
+        val category = currentCategories.firstOrNull { it.id == selectedCategoryId }
+        summary.setCategorySummary(category?.id, category?.name)
     }
 
     private fun attachSwipeNavigation() {
