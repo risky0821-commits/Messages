@@ -29,7 +29,6 @@ import org.fossify.messages.extensions.config
 import org.fossify.messages.extensions.conversationsDB
 import org.fossify.messages.extensions.createMessageCategory
 import org.fossify.messages.extensions.getCategoryUnreadCounts
-import org.fossify.messages.extensions.getTotalUnreadCount
 import org.fossify.messages.models.Conversation
 import org.fossify.messages.models.Events
 import org.fossify.messages.models.MessageCategory
@@ -46,7 +45,7 @@ class CategoryTabsView @JvmOverloads constructor(
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
-        setPadding(dp(12), dp(8), dp(12), dp(10))
+        setPadding(dp(14), dp(10), dp(14), dp(8))
     }
 
     private var selectedCategoryId: Long? = null
@@ -85,55 +84,39 @@ class CategoryTabsView @JvmOverloads constructor(
         refreshTabsAndList()
     }
 
+    fun showUnreadOnlyConversations() {
+        showUnreadOnly = true
+        selectedCategoryId = null
+        refreshTabsAndList()
+    }
+
+    fun showAllConversations() {
+        showUnreadOnly = false
+        selectedCategoryId = null
+        refreshTabsAndList()
+    }
+
     fun refreshTabsAndList() {
         ensureBackgroundThread {
             val categories = context.categoriesDB.getCategories()
             val unread = context.getCategoryUnreadCounts()
-            val totalUnread = context.getTotalUnreadCount()
             val allConversations = context.conversationsDB.getNonArchived()
 
             post {
                 currentCategories = categories
                 attachSwipeNavigation()
                 tabs.removeAllViews()
-                tabs.addView(
-                    makeTab(
-                        title = context.getString(R.string.category_all),
-                        unreadCount = totalUnread,
-                        selected = !showUnreadOnly && selectedCategoryId == null,
-                        onClick = {
-                            showUnreadOnly = false
-                            selectedCategoryId = null
-                            applyConversationFilter(allConversations)
-                            refreshTabsAndList()
-                        },
-                    )
-                )
-
-                tabs.addView(
-                    makeTab(
-                        title = context.getString(R.string.category_unread),
-                        unreadCount = totalUnread,
-                        selected = showUnreadOnly,
-                        onClick = {
-                            showUnreadOnly = true
-                            selectedCategoryId = null
-                            applyConversationFilter(allConversations.filter { !it.read })
-                            refreshTabsAndList()
-                        },
-                    )
-                )
 
                 categories.forEach { category ->
+                    val isSelected = !showUnreadOnly && selectedCategoryId == category.id
                     tabs.addView(
                         makeTab(
                             title = category.name,
                             unreadCount = unread[category.id] ?: 0,
-                            selected = !showUnreadOnly && selectedCategoryId == category.id,
+                            selected = isSelected,
                             onClick = {
                                 showUnreadOnly = false
-                                selectedCategoryId = category.id
-                                applySelectedCategory(category.id)
+                                selectedCategoryId = if (isSelected) null else category.id
                                 refreshTabsAndList()
                             },
                             onLongClick = { showManageCategoryDialog(category) },
@@ -239,52 +222,42 @@ class CategoryTabsView @JvmOverloads constructor(
     }
 
     private fun canMove(step: Int): Boolean {
-        val totalItems = currentCategories.size + 2
-        val currentIndex = currentSelectionIndex()
-        val targetIndex = currentIndex + step
+        val totalItems = currentCategories.size + 1 // hidden Inbox/All state + custom categories
+        val targetIndex = currentSelectionIndex() + step
         return targetIndex in 0 until totalItems
     }
 
     private fun currentSelectionIndex(): Int {
-        return when {
-            showUnreadOnly -> 1
-            selectedCategoryId == null -> 0
-            else -> {
-                val categoryIndex = currentCategories.indexOfFirst { it.id == selectedCategoryId }
-                if (categoryIndex >= 0) categoryIndex + 2 else 0
-            }
-        }
+        if (showUnreadOnly || selectedCategoryId == null) return 0
+        val categoryIndex = currentCategories.indexOfFirst { it.id == selectedCategoryId }
+        return if (categoryIndex >= 0) categoryIndex + 1 else 0
     }
 
     private fun moveSelection(step: Int) {
-        val totalItems = currentCategories.size + 2
+        val totalItems = currentCategories.size + 1
         if (totalItems <= 1) return
         val currentIndex = currentSelectionIndex()
         val targetIndex = (currentIndex + step).coerceIn(0, totalItems - 1)
         if (targetIndex == currentIndex) return
 
-        when (targetIndex) {
-            0 -> {
-                showUnreadOnly = false
-                selectedCategoryId = null
-            }
-            1 -> {
-                showUnreadOnly = true
-                selectedCategoryId = null
-            }
-            else -> {
-                showUnreadOnly = false
-                selectedCategoryId = currentCategories[targetIndex - 2].id
-            }
+        if (targetIndex == 0) {
+            showUnreadOnly = false
+            selectedCategoryId = null
+        } else {
+            showUnreadOnly = false
+            selectedCategoryId = currentCategories[targetIndex - 1].id
         }
         refreshTabsAndList()
     }
 
     private fun scrollSelectedTabIntoView() {
-        val selectedIndex = currentSelectionIndex()
+        if (showUnreadOnly) return
+        val categoryId = selectedCategoryId ?: return
+        val selectedIndex = currentCategories.indexOfFirst { it.id == categoryId }
+        if (selectedIndex < 0) return
         val selectedView = tabs.getChildAt(selectedIndex) ?: return
         post {
-            val targetX = selectedView.left - dp(12)
+            val targetX = selectedView.left - dp(14)
             smoothScrollTo(targetX.coerceAtLeast(0), 0)
         }
     }
