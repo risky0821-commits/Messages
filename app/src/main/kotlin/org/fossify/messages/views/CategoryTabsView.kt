@@ -5,6 +5,7 @@ package org.fossify.messages.views
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.View
@@ -14,11 +15,13 @@ import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
+import org.fossify.commons.extensions.getProperPrimaryColor
 import org.fossify.commons.extensions.getProperTextColor
 import org.fossify.commons.helpers.ensureBackgroundThread
 import org.fossify.messages.R
 import org.fossify.messages.extensions.categoriesDB
 import org.fossify.messages.extensions.createMessageCategory
+import org.fossify.messages.extensions.getCategoryUnreadCounts
 import org.fossify.messages.models.Events
 import org.fossify.messages.models.MessageCategory
 import org.greenrobot.eventbus.EventBus
@@ -99,6 +102,7 @@ class CategoryTabsView @JvmOverloads constructor(
     private fun refreshTabs() {
         ensureBackgroundThread {
             val categories = context.categoriesDB.getCategories()
+            val unreadCounts = context.getCategoryUnreadCounts()
             post {
                 currentCategories = categories
                 tabs.removeAllViews()
@@ -106,6 +110,7 @@ class CategoryTabsView @JvmOverloads constructor(
                 tabs.addView(
                     makeTab(
                         title = context.getString(R.string.category_all),
+                        unreadCount = 0,
                         selected = selectedCategoryId == null,
                         onClick = {
                             selectedCategoryId = null
@@ -119,6 +124,7 @@ class CategoryTabsView @JvmOverloads constructor(
                     tabs.addView(
                         makeTab(
                             title = category.name,
+                            unreadCount = unreadCounts[category.id] ?: 0,
                             selected = selectedCategoryId == category.id,
                             onClick = {
                                 selectedCategoryId = category.id
@@ -139,6 +145,7 @@ class CategoryTabsView @JvmOverloads constructor(
 
     private fun makeTab(
         title: String,
+        unreadCount: Int,
         selected: Boolean,
         onClick: () -> Unit,
         onLongClick: (() -> Unit)? = null,
@@ -165,14 +172,46 @@ class CategoryTabsView @JvmOverloads constructor(
             }
         }
 
+        val row = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dp(12), dp(10), dp(12), dp(6))
+        }
+
         val label = TextView(context).apply {
             text = title
             gravity = Gravity.CENTER
             textSize = 16f
             setTypeface(typeface, if (selected) Typeface.BOLD else Typeface.NORMAL)
             setTextColor(if (selected) textColor else withAlpha(textColor, 140))
-            setPadding(dp(16), dp(12), dp(16), dp(7))
-            minWidth = dp(62)
+            includeFontPadding = false
+        }
+        row.addView(label)
+
+        if (unreadCount > 0) {
+            row.addView(
+                TextView(context).apply {
+                    text = if (unreadCount > 99) "99+" else unreadCount.toString()
+                    gravity = Gravity.CENTER
+                    textSize = 11f
+                    setTypeface(typeface, Typeface.BOLD)
+                    setTextColor(Color.WHITE)
+                    minWidth = dp(20)
+                    minHeight = dp(20)
+                    setPadding(dp(5), 0, dp(5), 0)
+                    background = GradientDrawable().apply {
+                        shape = GradientDrawable.RECTANGLE
+                        cornerRadius = dp(10).toFloat()
+                        setColor(context.getProperPrimaryColor())
+                    }
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        dp(20),
+                    ).apply {
+                        marginStart = dp(6)
+                    }
+                }
+            )
         }
 
         val underline = View(context).apply {
@@ -180,7 +219,7 @@ class CategoryTabsView @JvmOverloads constructor(
         }
 
         holder.addView(
-            label,
+            row,
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 0,
