@@ -7,7 +7,6 @@ import android.util.AttributeSet
 import android.view.View
 import android.widget.RelativeLayout
 import android.widget.TextView
-import android.widget.Toast
 import org.fossify.commons.extensions.getProperPrimaryColor
 import org.fossify.commons.views.MyTextView
 import org.fossify.messages.R
@@ -34,6 +33,7 @@ class OtpCopyTextView constructor(
 ) : MyTextView(context, attrs) {
 
     private var otpCode: String? = null
+    private var showingCopiedState = false
 
     init {
         setTextColor(context.getProperPrimaryColor())
@@ -41,12 +41,25 @@ class OtpCopyTextView constructor(
             val code = otpCode ?: return@setOnClickListener
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.otp_code_label), code))
-            Toast.makeText(context, R.string.otp_code_copied, Toast.LENGTH_SHORT).show()
+            showingCopiedState = true
+            text = context.getString(R.string.otp_code_copied_inline)
+            removeCallbacks(restoreCopyLabel)
+            postDelayed(restoreCopyLabel, 1400L)
+        }
+    }
+
+    private val restoreCopyLabel = Runnable {
+        showingCopiedState = false
+        val code = otpCode
+        if (code != null) {
+            text = context.getString(R.string.copy_otp_code, code)
         }
     }
 
     fun setOtpCode(code: String?) {
         otpCode = code
+        showingCopiedState = false
+        removeCallbacks(restoreCopyLabel)
         requestLayout()
     }
 
@@ -57,7 +70,9 @@ class OtpCopyTextView constructor(
         val code = otpCode
 
         if (code != null && !isSentMessage) {
-            text = context.getString(R.string.copy_otp_code, code)
+            if (!showingCopiedState) {
+                text = context.getString(R.string.copy_otp_code, code)
+            }
             setTextColor(context.getProperPrimaryColor())
             visibility = View.VISIBLE
         } else {
