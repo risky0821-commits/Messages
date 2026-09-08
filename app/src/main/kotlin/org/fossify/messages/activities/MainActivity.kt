@@ -367,6 +367,7 @@ class MainActivity : SimpleActivity() {
             val allConversations = conversationsDB.getNonArchived() as ArrayList<Conversation>
             runOnUiThread {
                 setupConversations(allConversations)
+                binding.categoryPager.refreshNow()
             }
 
             if (config.appRunCount == 1) {
