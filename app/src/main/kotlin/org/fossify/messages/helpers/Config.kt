@@ -63,21 +63,51 @@ class Config(context: Context) : BaseConfig(context) {
         set(pinnedConversations) = prefs.edit()
             .putStringSet(PINNED_CONVERSATIONS, pinnedConversations).apply()
 
+    var pinnedConversationOrder: List<Long>
+        get() = prefs.getString(PINNED_CONVERSATION_ORDER, "")
+            .orEmpty()
+            .split(',')
+            .mapNotNull { it.toLongOrNull() }
+        set(order) = prefs.edit()
+            .putString(PINNED_CONVERSATION_ORDER, order.distinct().joinToString(","))
+            .apply()
+
+    fun getNormalizedPinnedConversationOrder(): List<Long> {
+        val pinnedIds = pinnedConversations.mapNotNull { it.toLongOrNull() }.toSet()
+        val existing = pinnedConversationOrder.filter { it in pinnedIds }
+        val missing = pinnedIds.filterNot { it in existing }.sorted()
+        return existing + missing
+    }
+
+    fun setPinnedConversationOrder(order: List<Long>) {
+        val pinnedIds = pinnedConversations.mapNotNull { it.toLongOrNull() }.toSet()
+        pinnedConversationOrder = order.filter { it in pinnedIds } +
+            pinnedIds.filterNot { it in order }.sorted()
+    }
+
     fun addPinnedConversationByThreadId(threadId: Long) {
         pinnedConversations = pinnedConversations.plus(threadId.toString())
+        if (threadId !in pinnedConversationOrder) {
+            pinnedConversationOrder = pinnedConversationOrder + threadId
+        }
     }
 
     fun addPinnedConversations(conversations: List<Conversation>) {
-        pinnedConversations = pinnedConversations.plus(conversations.map { it.threadId.toString() })
+        val addedIds = conversations.map { it.threadId }
+        pinnedConversations = pinnedConversations.plus(addedIds.map { it.toString() })
+        val current = pinnedConversationOrder
+        pinnedConversationOrder = current + addedIds.filterNot { it in current }
     }
 
     fun removePinnedConversationByThreadId(threadId: Long) {
         pinnedConversations = pinnedConversations.minus(threadId.toString())
+        pinnedConversationOrder = pinnedConversationOrder.filterNot { it == threadId }
     }
 
     fun removePinnedConversations(conversations: List<Conversation>) {
-        pinnedConversations =
-            pinnedConversations.minus(conversations.map { it.threadId.toString() })
+        val removedIds = conversations.map { it.threadId }.toSet()
+        pinnedConversations = pinnedConversations.minus(removedIds.map { it.toString() })
+        pinnedConversationOrder = pinnedConversationOrder.filterNot { it in removedIds }
     }
 
     var blockedKeywords: Set<String>
@@ -167,6 +197,5 @@ class Config(context: Context) : BaseConfig(context) {
 
     var keepConversationsArchived: Boolean
         get() = prefs.getBoolean(KEEP_CONVERSATIONS_ARCHIVED, false)
-        set(keepConversationsArchived) = prefs.edit()
-            .putBoolean(KEEP_CONVERSATIONS_ARCHIVED, keepConversationsArchived).apply()
+        set(keepConversationsArchived) = prefs.edit().putBoolean(KEEP_CONVERSATIONS_ARCHIVED, keepConversationsArchived).apply()
 }
