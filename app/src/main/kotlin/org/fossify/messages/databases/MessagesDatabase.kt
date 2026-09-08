@@ -35,7 +35,7 @@ import org.fossify.messages.models.RecycleBinMessage
         MessageCategory::class,
         CategoryConversation::class
     ],
-    version = 12
+    version = 13
 )
 @TypeConverters(Converters::class)
 abstract class MessagesDatabase : RoomDatabase() {
@@ -76,6 +76,7 @@ abstract class MessagesDatabase : RoomDatabase() {
                             .addMigrations(MIGRATION_9_10)
                             .addMigrations(MIGRATION_10_11)
                             .addMigrations(MIGRATION_11_12)
+                            .addMigrations(MIGRATION_12_13)
                             .build()
                     }
                 }
@@ -179,6 +180,14 @@ abstract class MessagesDatabase : RoomDatabase() {
                     execSQL("CREATE TABLE IF NOT EXISTS `category_conversations` (`category_id` INTEGER NOT NULL, `thread_id` INTEGER NOT NULL, PRIMARY KEY(`category_id`, `thread_id`))")
                     execSQL("CREATE INDEX IF NOT EXISTS `index_category_conversations_thread_id` ON `category_conversations` (`thread_id`)")
                 }
+            }
+        }
+
+        private val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE message_categories ADD COLUMN show_in_all INTEGER NOT NULL DEFAULT 1"
+                )
             }
         }
     }
