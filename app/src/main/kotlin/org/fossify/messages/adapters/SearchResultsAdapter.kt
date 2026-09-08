@@ -35,8 +35,8 @@ class SearchResultsAdapter(
     var searchResults: ArrayList<SearchResult>,
     recyclerView: MyRecyclerView,
     highlightText: String,
-    itemClick: (Any) -> Unit,
     private val refreshResults: () -> Unit = {},
+    itemClick: (Any) -> Unit,
 ) : MyRecyclerViewAdapter(activity, recyclerView, itemClick) {
 
     private var fontSize = activity.getTextSize()
