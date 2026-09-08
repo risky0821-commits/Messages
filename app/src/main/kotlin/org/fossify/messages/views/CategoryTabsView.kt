@@ -305,7 +305,7 @@ class CategoryTabsView @JvmOverloads constructor(
             context.getString(R.string.show_category_in_all)
         }
         val options = arrayOf(
-            context.getString(R.string.manage_conversations),
+            context.getString(R.string.manage_category_conversations, category.name),
             visibilityLabel,
             context.getString(R.string.reorder_categories),
             context.getString(R.string.rename_category),
