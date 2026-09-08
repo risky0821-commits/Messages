@@ -79,7 +79,7 @@ class Config(context: Context) : BaseConfig(context) {
         return existing + missing
     }
 
-    fun setPinnedConversationOrder(order: List<Long>) {
+    fun savePinnedConversationOrder(order: List<Long>) {
         val pinnedIds = pinnedConversations.mapNotNull { it.toLongOrNull() }.toSet()
         pinnedConversationOrder = order.filter { it in pinnedIds } +
             pinnedIds.filterNot { it in order }.sorted()
