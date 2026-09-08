@@ -78,14 +78,12 @@ class ReorderCategoriesDialog(
                 gravity = Gravity.CENTER_VERTICAL
                 textSize = 17f
                 setPadding(dp(16), 0, dp(16), 0)
-                compoundDrawablePadding = dp(12)
-                setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0, R.drawable.ic_drag_handle_vector, 0)
             }
             return CategoryHolder(view)
         }
 
         override fun onBindViewHolder(holder: CategoryHolder, position: Int) {
-            holder.label.text = categories[position].name
+            holder.label.text = "≡   ${categories[position].name}"
         }
 
         override fun getItemCount() = categories.size
