@@ -18,8 +18,10 @@ import org.fossify.commons.views.MyRecyclerView
 import org.fossify.messages.R
 import org.fossify.messages.activities.SimpleActivity
 import org.fossify.messages.dialogs.RenameConversationDialog
+import org.fossify.messages.dialogs.ReorderPinnedConversationsDialog
 import org.fossify.messages.extensions.categoriesDB
 import org.fossify.messages.extensions.config
+import org.fossify.messages.extensions.conversationsDB
 import org.fossify.messages.extensions.deleteConversation
 import org.fossify.messages.extensions.dialNumber
 import org.fossify.messages.extensions.launchConversationDetails
@@ -38,6 +40,10 @@ class ConversationsAdapter(
     onRefresh: () -> Unit,
     itemClick: (Any) -> Unit
 ) : BaseConversationsAdapter(activity, recyclerView, onRefresh, itemClick) {
+    companion object {
+        private const val ACTION_REORDER_PINNED = -1001
+    }
+
     override fun getActionMenuId() = R.menu.cab_conversations
 
     override fun usesDirectLongPressActions() = true
@@ -54,6 +60,9 @@ class ConversationsAdapter(
                 (if (isPinned) R.id.cab_unpin_conversation else R.id.cab_pin_conversation) to
                     activity.getString(if (isPinned) R.string.unpin_conversation else R.string.pin_conversation)
             )
+            if (isPinned && activity.config.pinnedConversations.size > 1) {
+                add(ACTION_REORDER_PINNED to activity.getString(R.string.reorder_pinned_conversations))
+            }
             add(
                 R.id.cab_mute_conversation to
                     activity.getString(if (isMuted) R.string.unmute_conversation else R.string.mute_conversation)
@@ -75,6 +84,11 @@ class ConversationsAdapter(
             .setTitle(conversation.title)
             .setItems(actions.map { it.second }.toTypedArray()) { _, which ->
                 val actionId = actions[which].first
+                if (actionId == ACTION_REORDER_PINNED) {
+                    showReorderPinnedConversationsDialog()
+                    return@setItems
+                }
+
                 startConversationSelection(position)
                 if (actionId != null) {
                     actionItemPressed(actionId)
@@ -82,6 +96,20 @@ class ConversationsAdapter(
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
+    }
+
+    private fun showReorderPinnedConversationsDialog() {
+        ensureBackgroundThread {
+            val pinnedIds = activity.config.getNormalizedPinnedConversationOrder()
+            val conversationsById = activity.conversationsDB.getNonArchived().associateBy { it.threadId }
+            val pinned = pinnedIds.mapNotNull { conversationsById[it] }
+            activity.runOnUiThread {
+                if (pinned.size < 2) return@runOnUiThread
+                ReorderPinnedConversationsDialog(activity, pinned) {
+                    refreshConversations()
+                }
+            }
+        }
     }
 
     override fun prepareActionMode(menu: Menu) {
