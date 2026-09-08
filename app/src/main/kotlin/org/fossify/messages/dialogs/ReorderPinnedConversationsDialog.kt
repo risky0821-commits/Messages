@@ -53,7 +53,7 @@ class ReorderPinnedConversationsDialog(
             .setView(recycler)
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(android.R.string.ok) { _, _ ->
-                activity.config.setPinnedConversationOrder(items.map { it.threadId })
+                activity.config.savePinnedConversationOrder(items.map { it.threadId })
                 onSaved()
             }
             .show()
