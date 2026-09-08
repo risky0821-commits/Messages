@@ -24,5 +24,6 @@
         android:icon="@drawable/ic_info_vector"
         android:showAsAction="never"
         android:title="@string/about"
+        android:visible="false"
         app:showAsAction="never" />
 </menu>
