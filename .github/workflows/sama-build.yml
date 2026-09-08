@@ -26,11 +26,32 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Restore stable Sama debug signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: sama-debug-keystore-v1
+
+      - name: Create stable debug signing key if missing
+        run: |
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            mkdir -p "$HOME/.android"
+            keytool -genkeypair \
+              -keystore "$HOME/.android/debug.keystore" \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
       - name: Make Gradle executable
         run: chmod +x gradlew
 
       - name: Build Foss debug APK
-        run: ./gradlew assembleFossDebug --stacktrace
+        run: ./gradlew assembleFossDebug -PVERSION_CODE=${{ github.run_number }} --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
