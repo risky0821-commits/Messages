@@ -20,7 +20,11 @@ class OtpAwareMessageTextView @JvmOverloads constructor(
     override fun setText(text: CharSequence?, type: TextView.BufferType?) {
         super.setText(text, type)
         val code = OtpCodeDetector.detect(text?.toString().orEmpty())
-        rootView.findViewById<OtpCopyTextView?>(R.id.thread_message_otp_copy)?.setOtpCode(code)
+        post {
+            (parent as? View)
+                ?.findViewById<OtpCopyTextView?>(R.id.thread_message_otp_copy)
+                ?.setOtpCode(code)
+        }
     }
 }
 
@@ -43,20 +47,22 @@ class OtpCopyTextView @JvmOverloads constructor(
 
     fun setOtpCode(code: String?) {
         otpCode = code
-        if (code == null) {
-            visibility = View.GONE
-        } else {
-            text = context.getString(R.string.copy_otp_code, code)
-            setTextColor(context.getProperPrimaryColor())
-            visibility = View.VISIBLE
-        }
+        requestLayout()
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val body = (parent as? View)?.findViewById<View>(R.id.thread_message_body)
         val params = body?.layoutParams as? RelativeLayout.LayoutParams
         val isSentMessage = params?.getRule(RelativeLayout.ALIGN_PARENT_END) != 0
-        visibility = if (otpCode != null && !isSentMessage) View.VISIBLE else View.GONE
+        val code = otpCode
+
+        if (code != null && !isSentMessage) {
+            text = context.getString(R.string.copy_otp_code, code)
+            setTextColor(context.getProperPrimaryColor())
+            visibility = View.VISIBLE
+        } else {
+            visibility = View.GONE
+        }
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
     }
 }
