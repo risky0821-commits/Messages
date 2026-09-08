@@ -22,6 +22,7 @@ import org.fossify.messages.R
 import org.fossify.messages.extensions.categoriesDB
 import org.fossify.messages.extensions.createMessageCategory
 import org.fossify.messages.extensions.getCategoryUnreadCounts
+import org.fossify.messages.extensions.getTotalUnreadCount
 import org.fossify.messages.models.Events
 import org.fossify.messages.models.MessageCategory
 import org.greenrobot.eventbus.EventBus
@@ -103,6 +104,7 @@ class CategoryTabsView @JvmOverloads constructor(
         ensureBackgroundThread {
             val categories = context.categoriesDB.getCategories()
             val unreadCounts = context.getCategoryUnreadCounts()
+            val totalUnreadCount = context.getTotalUnreadCount()
             post {
                 currentCategories = categories
                 tabs.removeAllViews()
@@ -110,7 +112,7 @@ class CategoryTabsView @JvmOverloads constructor(
                 tabs.addView(
                     makeTab(
                         title = context.getString(R.string.category_all),
-                        unreadCount = 0,
+                        unreadCount = totalUnreadCount,
                         selected = selectedCategoryId == null,
                         onClick = {
                             selectedCategoryId = null
