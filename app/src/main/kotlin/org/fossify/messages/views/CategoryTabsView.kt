@@ -19,6 +19,8 @@ import org.fossify.commons.extensions.getProperPrimaryColor
 import org.fossify.commons.extensions.getProperTextColor
 import org.fossify.commons.helpers.ensureBackgroundThread
 import org.fossify.messages.R
+import org.fossify.messages.activities.SimpleActivity
+import org.fossify.messages.dialogs.ReorderCategoriesDialog
 import org.fossify.messages.extensions.categoriesDB
 import org.fossify.messages.extensions.createMessageCategory
 import org.fossify.messages.extensions.getCategoryUnreadCounts
@@ -303,6 +305,7 @@ class CategoryTabsView @JvmOverloads constructor(
         }
         val options = arrayOf(
             visibilityLabel,
+            context.getString(R.string.reorder_categories),
             context.getString(R.string.rename_category),
             context.getString(R.string.delete_category),
         )
@@ -311,11 +314,21 @@ class CategoryTabsView @JvmOverloads constructor(
             .setItems(options) { _, which ->
                 when (which) {
                     0 -> toggleCategoryShowInAll(category)
-                    1 -> showRenameCategoryDialog(category)
-                    2 -> showDeleteCategoryDialog(category)
+                    1 -> showReorderCategoriesDialog()
+                    2 -> showRenameCategoryDialog(category)
+                    3 -> showDeleteCategoryDialog(category)
                 }
             }
             .show()
+    }
+
+    private fun showReorderCategoriesDialog() {
+        val activity = context as? SimpleActivity ?: return
+        if (currentCategories.size < 2) return
+        ReorderCategoriesDialog(activity, currentCategories) {
+            refreshTabs()
+            rootView.findViewById<CategoryPagerView>(R.id.category_pager)?.refreshNow()
+        }
     }
 
     private fun toggleCategoryShowInAll(category: MessageCategory) {
