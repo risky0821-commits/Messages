@@ -296,7 +296,13 @@ class CategoryTabsView @JvmOverloads constructor(
     }
 
     private fun showManageCategoryDialog(category: MessageCategory) {
+        val visibilityLabel = if (category.showInAll) {
+            context.getString(R.string.hide_category_from_all)
+        } else {
+            context.getString(R.string.show_category_in_all)
+        }
         val options = arrayOf(
+            visibilityLabel,
             context.getString(R.string.rename_category),
             context.getString(R.string.delete_category),
         )
@@ -304,11 +310,22 @@ class CategoryTabsView @JvmOverloads constructor(
             .setTitle(category.name)
             .setItems(options) { _, which ->
                 when (which) {
-                    0 -> showRenameCategoryDialog(category)
-                    1 -> showDeleteCategoryDialog(category)
+                    0 -> toggleCategoryShowInAll(category)
+                    1 -> showRenameCategoryDialog(category)
+                    2 -> showDeleteCategoryDialog(category)
                 }
             }
             .show()
+    }
+
+    private fun toggleCategoryShowInAll(category: MessageCategory) {
+        ensureBackgroundThread {
+            context.categoriesDB.setCategoryShowInAll(category.id, !category.showInAll)
+            post {
+                refreshTabs()
+                rootView.findViewById<CategoryPagerView>(R.id.category_pager)?.refreshNow()
+            }
+        }
     }
 
     private fun showRenameCategoryDialog(category: MessageCategory) {
