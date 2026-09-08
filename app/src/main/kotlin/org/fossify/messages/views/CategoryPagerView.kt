@@ -148,8 +148,15 @@ class CategoryPagerView @JvmOverloads constructor(
     }
 
     private fun conversationComparator(): Comparator<Conversation> {
+        val pinned = context.config.pinnedConversations
+        val ranks = context.config.getNormalizedPinnedConversationOrder()
+            .withIndex()
+            .associate { indexed -> indexed.value to indexed.index }
+
         return compareByDescending<Conversation> {
-            context.config.pinnedConversations.contains(it.threadId.toString())
+            pinned.contains(it.threadId.toString())
+        }.thenBy {
+            ranks[it.threadId] ?: Int.MAX_VALUE
         }.thenByDescending { it.date }
     }
 
