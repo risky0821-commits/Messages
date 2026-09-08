@@ -105,7 +105,8 @@ class ConversationsAdapter(
             val pinned = pinnedIds.mapNotNull { conversationsById[it] }
             activity.runOnUiThread {
                 if (pinned.size < 2) return@runOnUiThread
-                ReorderPinnedConversationsDialog(activity, pinned) {
+                val simpleActivity = activity as? SimpleActivity ?: return@runOnUiThread
+                ReorderPinnedConversationsDialog(simpleActivity, pinned) {
                     refreshConversations()
                 }
             }
