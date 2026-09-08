@@ -108,68 +108,49 @@ class CategoryTabsView @JvmOverloads constructor(
                 currentCategories = categories
                 tabs.removeAllViews()
 
-                categories.forEach { category ->
-                    val isSelected = selectedCategoryId == category.id
-                    tabs.addView(
-                        makeTab(
-                            title = category.name,
-                            unreadCount = unread[category.id] ?: 0,
-                            selected = isSelected,
-                            onClick = {
-                                if (isSelected) {
-                                    selectedCategoryId = null
-                                    rootView.findViewById<CategoryPagerView>(R.id.category_pager)
-                                        ?.selectCategory(null)
-                                } else {
-                                    selectedCategoryId = category.id
-                                    rootView.findViewById<CategoryPagerView>(R.id.category_pager)
-                                        ?.selectCategory(category.id)
-                                }
-                                refreshTabs()
-                            },
-                            onLongClick = { showManageCategoryDialog(category) },
-                        )
+                val current = categories.firstOrNull { it.id == selectedCategoryId }
+                tabs.addView(
+                    makeCurrentFilterPill(
+                        title = current?.name ?: context.getString(R.string.category_all),
+                        unreadCount = current?.let { unread[it.id] ?: 0 },
+                        onLongClick = current?.let { category -> { showManageCategoryDialog(category) } },
                     )
-                }
-
+                )
                 tabs.addView(makeSearchButton())
                 tabs.addView(makeOverflowButton())
                 tabs.addView(makeAddButton())
+
                 rootView.findViewById<OneUiUnreadSummaryView>(R.id.unread_summary_card)?.refreshSummary()
-                scrollSelectedTabIntoView()
+                post { smoothScrollTo(0, 0) }
             }
         }
     }
 
-    private fun scrollSelectedTabIntoView() {
-        val categoryId = selectedCategoryId ?: return
-        val selectedIndex = currentCategories.indexOfFirst { it.id == categoryId }
-        if (selectedIndex < 0) return
-        val selectedView = tabs.getChildAt(selectedIndex) ?: return
-        post { smoothScrollTo((selectedView.left - dp(14)).coerceAtLeast(0), 0) }
-    }
-
-    private fun makeTab(
+    private fun makeCurrentFilterPill(
         title: String,
-        unreadCount: Int,
-        selected: Boolean,
-        onClick: () -> Unit,
-        onLongClick: (() -> Unit)? = null,
+        unreadCount: Int?,
+        onLongClick: (() -> Unit)?,
     ): TextView {
-        val label = if (unreadCount > 0) "$title  $unreadCount" else title
         val primary = context.getProperPrimaryColor()
+        val label = if (unreadCount != null && unreadCount > 0) "$title  $unreadCount" else title
         return TextView(context).apply {
             text = label
             gravity = Gravity.CENTER
             minHeight = dp(38)
-            setPadding(dp(16), dp(8), dp(16), dp(8))
-            setTextColor(if (selected) contrastTextColor(primary) else context.getProperTextColor())
-            setTypeface(typeface, if (selected) Typeface.BOLD else Typeface.NORMAL)
-            textSize = 14f
-            background = pillBackground(selected, primary)
+            setPadding(dp(18), dp(8), dp(18), dp(8))
+            setTextColor(contrastTextColor(primary))
+            setTypeface(typeface, Typeface.BOLD)
+            textSize = 15f
+            background = pillBackground(true, primary)
             isClickable = true
             isFocusable = true
-            setOnClickListener { onClick() }
+            setOnClickListener {
+                if (selectedCategoryId != null) {
+                    selectedCategoryId = null
+                    rootView.findViewById<CategoryPagerView>(R.id.category_pager)?.selectCategory(null)
+                    refreshTabs()
+                }
+            }
             if (onLongClick != null) {
                 setOnLongClickListener {
                     onLongClick()
@@ -179,7 +160,7 @@ class CategoryTabsView @JvmOverloads constructor(
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
-            ).apply { marginEnd = dp(8) }
+            ).apply { marginEnd = dp(10) }
         }
     }
 
