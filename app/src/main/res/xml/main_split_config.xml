@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:window="http://schemas.android.com/apk/res-auto">
+    <SplitPairRule
+        window:splitRatio="0.38"
+        window:splitLayoutDirection="locale"
+        window:splitMinWidthDp="600"
+        window:splitMaxAspectRatioInPortrait="alwaysAllow"
+        window:finishPrimaryWithSecondary="never"
+        window:finishSecondaryWithPrimary="always"
+        window:clearTop="true">
+        <SplitPairFilter
+            window:primaryActivityName=".activities.MainActivity"
+            window:secondaryActivityName=".activities.ThreadActivity" />
+    </SplitPairRule>
+</resources>
