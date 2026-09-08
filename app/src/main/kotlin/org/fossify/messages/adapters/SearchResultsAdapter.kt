@@ -19,10 +19,12 @@ import org.fossify.messages.activities.SimpleActivity
 import org.fossify.messages.databinding.ItemSearchResultBinding
 import org.fossify.messages.extensions.categoriesDB
 import org.fossify.messages.extensions.config
+import org.fossify.messages.extensions.conversationsDB
 import org.fossify.messages.extensions.deleteConversation
 import org.fossify.messages.extensions.launchConversationDetails
 import org.fossify.messages.extensions.markThreadMessagesRead
 import org.fossify.messages.extensions.markThreadMessagesUnread
+import org.fossify.messages.extensions.messagesDB
 import org.fossify.messages.extensions.updateConversationArchivedStatus
 import org.fossify.messages.helpers.MUTED_NOTIFICATION_CHANNEL_PREFIX
 import org.fossify.messages.helpers.refreshConversations
@@ -39,6 +41,10 @@ class SearchResultsAdapter(
 
     private var fontSize = activity.getTextSize()
     private var textToHighlight = highlightText
+
+    init {
+        sortResultsByRealDate()
+    }
 
     override fun getActionMenuId() = R.menu.cab_conversations
 
@@ -164,10 +170,38 @@ class SearchResultsAdapter(
         if (newItems.hashCode() != searchResults.hashCode()) {
             searchResults = newItems.clone() as ArrayList<SearchResult>
             textToHighlight = highlightText
-            notifyDataSetChanged()
+            sortResultsByRealDate()
         } else if (textToHighlight != highlightText) {
             textToHighlight = highlightText
             notifyDataSetChanged()
+        }
+    }
+
+    private fun sortResultsByRealDate() {
+        val snapshot = searchResults.toList()
+        ensureBackgroundThread {
+            val dated = snapshot.mapIndexed { index, result ->
+                val timestamp = if (result.messageId == -1L) {
+                    activity.conversationsDB.getConversationWithThreadId(result.threadId)?.date ?: 0
+                } else {
+                    activity.messagesDB.getThreadMessages(result.threadId)
+                        .firstOrNull { it.id == result.messageId }
+                        ?.date ?: 0
+                }
+                Triple(result, timestamp, index)
+            }
+                .sortedWith(
+                    compareByDescending<Triple<SearchResult, Int, Int>> { it.second }
+                        .thenBy { it.third }
+                )
+                .map { it.first }
+
+            activity.runOnUiThread {
+                if (searchResults.toSet() == snapshot.toSet()) {
+                    searchResults = ArrayList(dated)
+                    notifyDataSetChanged()
+                }
+            }
         }
     }
 
