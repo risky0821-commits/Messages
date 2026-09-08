@@ -19,4 +19,6 @@ data class MessageCategory(
     val sortOrder: Int,
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis(),
+    @ColumnInfo(name = "show_in_all")
+    val showInAll: Boolean = true,
 )
