@@ -5,7 +5,9 @@
     android:id="@+id/search_result_holder"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="?attr/selectableItemBackground"
+    android:layout_marginBottom="@dimen/tiny_margin"
+    android:clickable="true"
+    android:focusable="true"
     android:minHeight="@dimen/two_line_list_item_min_height"
     android:paddingStart="@dimen/activity_margin"
     android:paddingTop="@dimen/medium_margin"
@@ -21,13 +23,15 @@
         app:layout_constraintTop_toTopOf="@id/search_result_title"
         tools:src="@mipmap/ic_launcher" />
 
-    <TextView
+    <org.fossify.commons.views.MyTextView
         android:id="@+id/search_result_title"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="@dimen/activity_margin"
         android:ellipsize="end"
         android:maxLines="1"
+        android:textAlignment="viewStart"
+        android:textDirection="locale"
         android:textSize="@dimen/list_primary_text_size"
         app:layout_constraintBottom_toTopOf="@id/search_result_snippet"
         app:layout_constraintEnd_toStartOf="@id/search_result_date"
@@ -35,14 +39,17 @@
         app:layout_constraintTop_toTopOf="parent"
         tools:text="John" />
 
-    <TextView
+    <org.fossify.commons.views.MyTextView
         android:id="@+id/search_result_snippet"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/activity_margin"
+        android:layout_marginEnd="@dimen/activity_margin"
         android:alpha="0.7"
         android:ellipsize="end"
         android:maxLines="1"
+        android:textAlignment="viewStart"
+        android:textDirection="locale"
         android:textSize="@dimen/list_secondary_text_size"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
@@ -50,11 +57,13 @@
         app:layout_constraintTop_toBottomOf="@id/search_result_title"
         tools:text="Hey buddy!" />
 
-    <TextView
+    <org.fossify.commons.views.MyTextView
         android:id="@+id/search_result_date"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:alpha="0.7"
+        android:textAlignment="viewStart"
+        android:textDirection="locale"
         android:textSize="@dimen/list_tertiary_text_size"
         app:layout_constraintBottom_toBottomOf="@id/search_result_title"
         app:layout_constraintEnd_toEndOf="parent"
