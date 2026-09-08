@@ -33,8 +33,8 @@ class SearchResultsAdapter(
     var searchResults: ArrayList<SearchResult>,
     recyclerView: MyRecyclerView,
     highlightText: String,
-    private val refreshResults: () -> Unit,
     itemClick: (Any) -> Unit,
+    private val refreshResults: () -> Unit = {},
 ) : MyRecyclerViewAdapter(activity, recyclerView, itemClick) {
 
     private var fontSize = activity.getTextSize()
@@ -64,8 +64,6 @@ class SearchResultsAdapter(
             findItem(R.id.cab_delete).isVisible = true
             findItem(R.id.cab_conversation_details).isVisible = true
 
-            // Search results can point to a matching message instead of a unique address,
-            // so phone-number-only actions are intentionally kept out of this contextual menu.
             findItem(R.id.cab_dial_number).isVisible = false
             findItem(R.id.cab_add_number_to_contact).isVisible = false
             findItem(R.id.cab_copy_number).isVisible = false
