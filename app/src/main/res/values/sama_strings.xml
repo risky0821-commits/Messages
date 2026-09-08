@@ -14,6 +14,8 @@
     <string name="rename_category">Rename category</string>
     <string name="delete_category">Delete category</string>
     <string name="delete_category_confirmation">Delete "%1$s"? Messages will stay in All.</string>
+    <string name="hide_category_from_all">Hide from All tab</string>
+    <string name="show_category_in_all">Show in All tab</string>
     <string name="no_category">No category</string>
     <string name="mute_conversation">Mute this conversation</string>
     <string name="unmute_conversation">Unmute this conversation</string>
