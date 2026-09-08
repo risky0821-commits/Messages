@@ -119,11 +119,16 @@ class CategoryPagerView @JvmOverloads constructor(
         ensureBackgroundThread {
             val categories = context.categoriesDB.getCategories()
             val all = context.conversationsDB.getNonArchived().sortedWith(conversationComparator())
+            val hiddenFromAll = context.categoriesDB.getThreadIdsHiddenFromAll().toHashSet()
             val mappings = categories.associate { category ->
                 category.id to context.categoriesDB.getThreadIdsForCategory(category.id).toHashSet()
             }
             val built = ArrayList<Page>()
-            val firstPage = if (unreadOnly) all.filter { !it.read } else all
+            val firstPage = if (unreadOnly) {
+                all.filter { !it.read }
+            } else {
+                all.filterNot { it.threadId in hiddenFromAll }
+            }
             built.add(Page(null, firstPage))
             categories.forEach { category ->
                 val ids = mappings[category.id].orEmpty()
