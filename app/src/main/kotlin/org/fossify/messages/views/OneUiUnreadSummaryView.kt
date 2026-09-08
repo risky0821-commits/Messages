@@ -22,6 +22,7 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
     private val titleView = TextView(context)
     private val actions = LinearLayout(context)
     private var collapseOffset = 0f
+    private var selectionMode = false
 
     init {
         setBackgroundColor(android.graphics.Color.TRANSPARENT)
@@ -82,7 +83,13 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
 
     fun setCategorySummary(categoryId: Long?, title: String?) = Unit
 
+    fun setSelectionMode(enabled: Boolean) {
+        selectionMode = enabled
+    }
+
     fun onConversationScrolled(dy: Int, canScrollUp: Boolean) {
+        if (selectionMode) return
+
         val distance = collapseDistance()
         collapseOffset = if (!canScrollUp && dy <= 0) {
             (collapseOffset + dy).coerceAtLeast(0f)
@@ -151,7 +158,6 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
         val raw = (collapseOffset / collapseDistance()).coerceIn(0f, 1f)
         val progress = raw * raw * (3f - 2f * raw)
 
-        // Keep the right edge of the Arabic title fixed while scaling, matching Samsung's header.
         titleView.pivotX = titleView.width.toFloat()
         titleView.pivotY = titleView.height / 2f
         titleView.translationY = dp(70) * (1f - progress)
@@ -160,7 +166,6 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
 
         actions.translationY = dp(78) * (1f - progress)
 
-        // Tabs/list rise smoothly, while the compact header remains fixed below the status bar.
         val expandedTop = dp(194).toFloat()
         val compactTop = dp(76).toFloat()
         inbox.translationY = expandedTop - ((expandedTop - compactTop) * progress)
