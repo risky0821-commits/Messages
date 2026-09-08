@@ -59,7 +59,7 @@ interface CategoriesDao {
         """
         SELECT cc.category_id AS categoryId, COALESCE(SUM(c.unread_count), 0) AS unreadCount
         FROM category_conversations cc
-        LEFT JOIN conversations c ON c.thread_id = cc.thread_id
+        LEFT JOIN conversations c ON c.thread_id = cc.thread_id AND c.archived = 0
         GROUP BY cc.category_id
         """
     )
@@ -69,7 +69,7 @@ interface CategoriesDao {
         """
         SELECT COALESCE(SUM(c.unread_count), 0)
         FROM category_conversations cc
-        INNER JOIN conversations c ON c.thread_id = cc.thread_id
+        INNER JOIN conversations c ON c.thread_id = cc.thread_id AND c.archived = 0
         WHERE cc.category_id = :categoryId
         """
     )
