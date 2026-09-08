@@ -66,7 +66,7 @@ class ConversationsAdapter(
             if (activity.config.isArchiveAvailable) {
                 add(R.id.cab_archive to activity.getString(R.string.archive))
             }
-            add(R.id.cab_delete to activity.getString(R.string.delete))
+            add(R.id.cab_delete to activity.getString(org.fossify.commons.R.string.delete))
             add(R.id.cab_conversation_details to activity.getString(R.string.conversation_details))
             add(null to activity.getString(R.string.select_conversations))
         }
