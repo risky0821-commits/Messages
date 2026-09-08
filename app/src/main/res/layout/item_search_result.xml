@@ -27,27 +27,41 @@
         android:id="@+id/search_result_title"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginHorizontal="@dimen/activity_margin"
+        android:layout_marginStart="@dimen/activity_margin"
+        android:layout_marginEnd="@dimen/medium_margin"
         android:ellipsize="end"
         android:maxLines="1"
         android:textAlignment="viewStart"
         android:textDirection="locale"
         android:textSize="@dimen/list_primary_text_size"
-        app:layout_constraintBottom_toTopOf="@id/search_result_snippet"
+        android:textStyle="bold"
         app:layout_constraintEnd_toStartOf="@id/search_result_date"
         app:layout_constraintStart_toEndOf="@id/search_result_image"
         app:layout_constraintTop_toTopOf="parent"
         tools:text="John" />
 
     <org.fossify.commons.views.MyTextView
+        android:id="@+id/search_result_date"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:alpha="0.62"
+        android:textAlignment="viewEnd"
+        android:textDirection="locale"
+        android:textSize="@dimen/list_tertiary_text_size"
+        app:layout_constraintBottom_toBottomOf="@id/search_result_title"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/search_result_title"
+        tools:text="13:30" />
+
+    <org.fossify.commons.views.MyTextView
         android:id="@+id/search_result_snippet"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/activity_margin"
-        android:layout_marginEnd="@dimen/activity_margin"
-        android:alpha="0.7"
+        android:layout_marginTop="@dimen/tiny_margin"
+        android:alpha="0.78"
         android:ellipsize="end"
-        android:maxLines="1"
+        android:maxLines="2"
         android:textAlignment="viewStart"
         android:textDirection="locale"
         android:textSize="@dimen/list_secondary_text_size"
@@ -55,19 +69,6 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@id/search_result_image"
         app:layout_constraintTop_toBottomOf="@id/search_result_title"
-        tools:text="Hey buddy!" />
-
-    <org.fossify.commons.views.MyTextView
-        android:id="@+id/search_result_date"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:alpha="0.7"
-        android:textAlignment="viewStart"
-        android:textDirection="locale"
-        android:textSize="@dimen/list_tertiary_text_size"
-        app:layout_constraintBottom_toBottomOf="@id/search_result_title"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@id/search_result_title"
-        tools:text="08/02/2021" />
+        tools:text="Your matching message appears here with enough context to understand the result." />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
