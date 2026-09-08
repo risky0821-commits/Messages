@@ -9,6 +9,8 @@ import org.fossify.commons.FossifyApp
 import org.fossify.commons.extensions.hasPermission
 import org.fossify.commons.helpers.PERMISSION_READ_CONTACTS
 import org.fossify.commons.helpers.ensureBackgroundThread
+import org.fossify.messages.extensions.applySamaTheme
+import org.fossify.messages.extensions.getSamaThemeMode
 import org.fossify.messages.extensions.rescheduleAllScheduledMessages
 import org.fossify.messages.helpers.MessagingCache
 
@@ -17,6 +19,12 @@ class App : FossifyApp() {
 
     override fun onCreate() {
         super.onCreate()
+
+        // Sama intentionally supports a clean light/dark appearance only. This converts any
+        // legacy/custom Fossify palette into the matching standard Sama theme before an
+        // activity is created, preventing mixed foreground/background colors.
+        applySamaTheme(getSamaThemeMode())
+
         if (hasPermission(PERMISSION_READ_CONTACTS)) {
             listOf(
                 ContactsContract.Contacts.CONTENT_URI,
