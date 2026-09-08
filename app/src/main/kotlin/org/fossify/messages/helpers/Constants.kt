@@ -26,6 +26,7 @@ const val SEND_LONG_MESSAGE_MMS = "send_long_message_mms"
 const val SEND_GROUP_MESSAGE_MMS = "send_group_message_mms"
 const val MMS_FILE_SIZE_LIMIT = "mms_file_size_limit"
 const val PINNED_CONVERSATIONS = "pinned_conversations"
+const val PINNED_CONVERSATION_ORDER = "pinned_conversation_order"
 const val BLOCKED_KEYWORDS = "blocked_keywords"
 const val LAST_BLOCKED_KEYWORD_EXPORT_PATH = "last_blocked_keyword_export_path"
 const val EXPORT_SMS = "export_sms"
@@ -37,7 +38,7 @@ const val TXT_MIME_TYPE = "text/plain"
 const val IMPORT_SMS = "import_sms"
 const val IMPORT_MMS = "import_mms"
 const val WAS_DB_CLEARED = "was_db_cleared_4"
-const val EXTRA_VCARD_URI = "vcard"
+const val EXTRA_VCARD_URI = "extra_vcard_uri"
 const val SCHEDULED_MESSAGE_ID = "scheduled_message_id"
 const val SOFT_KEYBOARD_HEIGHT = "soft_keyboard_height"
 const val IS_MMS = "is_mms"
@@ -55,7 +56,6 @@ private const val PATH = "org.fossify.org.fossify.messages.action."
 const val MARK_AS_READ = PATH + "mark_as_read"
 const val REPLY = PATH + "reply"
 
-// view types for the thread list view
 const val THREAD_DATE_TIME = 1
 const val THREAD_RECEIVED_MESSAGE = 2
 const val THREAD_SENT_MESSAGE = 3
@@ -67,12 +67,10 @@ const val THREAD_KEY_BITS = Long.SIZE_BITS - THREAD_TYPE_BITS
 const val THREAD_TYPE_SHIFT = THREAD_KEY_BITS
 const val THREAD_KEY_MASK = (1L shl THREAD_KEY_BITS) - 1
 
-// view types for attachment list
 const val ATTACHMENT_DOCUMENT = 7
 const val ATTACHMENT_MEDIA = 8
 const val ATTACHMENT_VCARD = 9
 
-// lock screen visibility constants
 const val LOCK_SCREEN_SENDER_MESSAGE = 1
 const val LOCK_SCREEN_SENDER = 2
 const val LOCK_SCREEN_NOTHING = 3
@@ -88,7 +86,6 @@ const val FILE_SIZE_2_MB = 2_097_152L
 const val MESSAGES_LIMIT = 50
 const val MAX_MESSAGE_LENGTH = 5000
 
-// intent launch request codes
 const val PICK_PHOTO_INTENT = 42
 const val PICK_VIDEO_INTENT = 49
 const val PICK_SAVE_FILE_INTENT = 43
