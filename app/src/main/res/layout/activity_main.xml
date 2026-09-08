@@ -20,119 +20,98 @@
         android:fitsSystemWindows="true"
         android:scrollbars="none">
 
-        <androidx.coordinatorlayout.widget.CoordinatorLayout
-            android:id="@+id/main_coordinator_wrapper"
+        <RelativeLayout
+            android:id="@+id/main_holder"
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
-            <RelativeLayout
-                android:id="@+id/main_holder"
+            <com.google.android.material.progressindicator.LinearProgressIndicator
+                android:id="@+id/conversations_progress_bar"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent">
+                android:layout_height="wrap_content"
+                android:layout_alignParentTop="true"
+                android:indeterminate="true"
+                android:visibility="gone"
+                app:hideAnimationBehavior="outward"
+                app:showAnimationBehavior="inward"
+                app:showDelay="250"
+                tools:visibility="visible" />
 
-                <com.google.android.material.progressindicator.LinearProgressIndicator
-                    android:id="@+id/conversations_progress_bar"
+            <org.fossify.messages.views.OneUiUnreadSummaryView
+                android:id="@+id/unread_summary_card"
+                android:layout_width="match_parent"
+                android:layout_height="190dp"
+                android:layout_below="@id/conversations_progress_bar"
+                android:layout_marginStart="@dimen/activity_margin"
+                android:layout_marginTop="8dp"
+                android:layout_marginEnd="@dimen/activity_margin" />
+
+            <LinearLayout
+                android:id="@+id/inbox_card"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_alignParentTop="true"
+                android:orientation="vertical"
+                android:translationY="194dp">
+
+                <org.fossify.messages.views.CategoryTabsView
+                    android:id="@+id/category_tabs"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_alignParentTop="true"
-                    android:indeterminate="true"
-                    android:visibility="gone"
-                    app:hideAnimationBehavior="outward"
-                    app:showAnimationBehavior="inward"
-                    app:showDelay="250"
-                    tools:visibility="visible" />
+                    android:layout_height="58dp"
+                    android:fillViewport="false" />
 
-                <org.fossify.messages.views.OneUiUnreadSummaryView
-                    android:id="@+id/unread_summary_card"
+                <org.fossify.messages.views.CategoryPagerView
+                    android:id="@+id/category_pager"
                     android:layout_width="match_parent"
-                    android:layout_height="250dp"
-                    android:layout_below="@id/conversations_progress_bar"
-                    android:layout_marginStart="@dimen/activity_margin"
-                    android:layout_marginTop="40dp"
-                    android:layout_marginEnd="@dimen/activity_margin"
-                    android:elevation="1dp" />
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
 
-                <org.fossify.commons.views.MyTextView
-                    android:id="@+id/no_conversations_placeholder"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_below="@id/unread_summary_card"
-                    android:layout_centerHorizontal="true"
-                    android:layout_marginTop="@dimen/bigger_margin"
-                    android:alpha="0.8"
-                    android:gravity="center"
-                    android:paddingLeft="@dimen/activity_margin"
-                    android:paddingRight="@dimen/activity_margin"
-                    android:text="@string/no_conversations_found"
-                    android:textSize="@dimen/bigger_text_size"
-                    android:textStyle="italic"
-                    android:visibility="gone" />
+                <com.qtalk.recyclerviewfastscroller.RecyclerViewFastScroller
+                    android:id="@+id/conversations_fastscroller"
+                    android:layout_width="1dp"
+                    android:layout_height="1dp"
+                    android:alpha="0"
+                    android:importantForAccessibility="noHideDescendants">
 
-                <org.fossify.commons.views.MyTextView
-                    android:id="@+id/no_conversations_placeholder_2"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_below="@+id/no_conversations_placeholder"
-                    android:layout_centerHorizontal="true"
-                    android:background="@drawable/ripple_all_corners"
-                    android:gravity="center"
-                    android:padding="@dimen/activity_margin"
-                    android:text="@string/start_conversation"
-                    android:textSize="@dimen/bigger_text_size"
-                    android:visibility="gone" />
+                    <org.fossify.commons.views.MyRecyclerView
+                        android:id="@+id/conversations_list"
+                        android:layout_width="1dp"
+                        android:layout_height="1dp"
+                        android:clipToPadding="false"
+                        android:overScrollMode="never"
+                        android:scrollbars="none"
+                        app:layoutManager="org.fossify.commons.views.MyLinearLayoutManager" />
 
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/inbox_card"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:layout_alignParentTop="true"
-                    android:layout_marginStart="@dimen/activity_margin"
-                    android:layout_marginEnd="@dimen/activity_margin"
-                    android:layout_marginBottom="8dp"
-                    android:translationY="302dp"
-                    app:cardBackgroundColor="?attr/colorSurface"
-                    app:cardCornerRadius="28dp"
-                    app:cardElevation="0dp"
-                    app:strokeWidth="0dp">
+                </com.qtalk.recyclerviewfastscroller.RecyclerViewFastScroller>
+            </LinearLayout>
 
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:orientation="vertical">
+            <org.fossify.commons.views.MyTextView
+                android:id="@+id/no_conversations_placeholder"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true"
+                android:alpha="0.8"
+                android:gravity="center"
+                android:paddingLeft="@dimen/activity_margin"
+                android:paddingRight="@dimen/activity_margin"
+                android:text="@string/no_conversations_found"
+                android:textSize="@dimen/bigger_text_size"
+                android:textStyle="italic"
+                android:visibility="gone" />
 
-                        <org.fossify.messages.views.CategoryTabsView
-                            android:id="@+id/category_tabs"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:fillViewport="false" />
-
-                        <org.fossify.messages.views.CategoryPagerView
-                            android:id="@+id/category_pager"
-                            android:layout_width="match_parent"
-                            android:layout_height="0dp"
-                            android:layout_weight="1" />
-
-                        <com.qtalk.recyclerviewfastscroller.RecyclerViewFastScroller
-                            android:id="@+id/conversations_fastscroller"
-                            android:layout_width="1dp"
-                            android:layout_height="1dp"
-                            android:alpha="0"
-                            android:importantForAccessibility="noHideDescendants">
-
-                            <org.fossify.commons.views.MyRecyclerView
-                                android:id="@+id/conversations_list"
-                                android:layout_width="1dp"
-                                android:layout_height="1dp"
-                                android:clipToPadding="false"
-                                android:overScrollMode="never"
-                                android:scrollbars="none"
-                                app:layoutManager="org.fossify.commons.views.MyLinearLayoutManager" />
-
-                        </com.qtalk.recyclerviewfastscroller.RecyclerViewFastScroller>
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-            </RelativeLayout>
-        </androidx.coordinatorlayout.widget.CoordinatorLayout>
+            <org.fossify.commons.views.MyTextView
+                android:id="@+id/no_conversations_placeholder_2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/no_conversations_placeholder"
+                android:layout_centerHorizontal="true"
+                android:background="@drawable/ripple_all_corners"
+                android:gravity="center"
+                android:padding="@dimen/activity_margin"
+                android:text="@string/start_conversation"
+                android:textSize="@dimen/bigger_text_size"
+                android:visibility="gone" />
+        </RelativeLayout>
 
         <RelativeLayout
             android:id="@+id/search_holder"
@@ -159,7 +138,7 @@
                 android:id="@+id/search_placeholder_2"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_below="@+id/search_placeholder"
+                android:layout_below="@id/search_placeholder"
                 android:layout_centerHorizontal="true"
                 android:alpha="0.8"
                 android:gravity="center"
@@ -178,7 +157,6 @@
                 android:clipToPadding="false"
                 android:scrollbars="vertical"
                 app:layoutManager="org.fossify.commons.views.MyLinearLayoutManager" />
-
         </RelativeLayout>
     </RelativeLayout>
 
