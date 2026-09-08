@@ -88,6 +88,10 @@ class CategoryPagerView @JvmOverloads constructor(
         refreshPages()
     }
 
+    fun refreshNow() {
+        refreshPages()
+    }
+
     fun selectCategory(categoryId: Long?, smooth: Boolean = true) {
         unreadOnly = false
         requestedCategoryId = categoryId
