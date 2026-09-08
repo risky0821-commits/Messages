@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="sama_app_name">Sama</string>
+    <string name="messages_title">Messages</string>
     <string name="category_all">All</string>
     <string name="category_unread">Unread</string>
     <string name="unread_messages_summary">%1$d unread messages</string>
