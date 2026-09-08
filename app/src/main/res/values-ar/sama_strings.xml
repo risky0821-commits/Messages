@@ -12,6 +12,9 @@
     <string name="remove_from_category">إزالة من الفئة</string>
     <string name="manage_categories">إدارة الفئات</string>
     <string name="reorder_categories">إعادة ترتيب الفئات</string>
+    <string name="manage_conversations">إدارة المحادثات</string>
+    <string name="manage_category_conversations">إدارة محادثات %1$s</string>
+    <string name="no_conversations_available">لا توجد محادثات متاحة</string>
     <string name="rename_category">تغيير اسم الفئة</string>
     <string name="delete_category">حذف الفئة</string>
     <string name="delete_category_confirmation">حذف "%1$s"؟ الرسائل ستبقى في تبويب الكل.</string>
