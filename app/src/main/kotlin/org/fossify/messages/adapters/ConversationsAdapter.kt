@@ -40,6 +40,50 @@ class ConversationsAdapter(
 ) : BaseConversationsAdapter(activity, recyclerView, onRefresh, itemClick) {
     override fun getActionMenuId() = R.menu.cab_conversations
 
+    override fun usesDirectLongPressActions() = true
+
+    override fun onConversationLongPressed(conversation: Conversation, position: Int) {
+        showConversationActions(conversation, position)
+    }
+
+    private fun showConversationActions(conversation: Conversation, position: Int) {
+        val isPinned = activity.config.pinnedConversations.contains(conversation.threadId.toString())
+        val isMuted = activity.config.isConversationMuted(conversation.threadId)
+        val actions = ArrayList<Pair<Int?, String>>().apply {
+            add(
+                (if (isPinned) R.id.cab_unpin_conversation else R.id.cab_pin_conversation) to
+                    activity.getString(if (isPinned) R.string.unpin_conversation else R.string.pin_conversation)
+            )
+            add(
+                R.id.cab_mute_conversation to
+                    activity.getString(if (isMuted) R.string.unmute_conversation else R.string.mute_conversation)
+            )
+            add(
+                (if (conversation.read) R.id.cab_mark_as_unread else R.id.cab_mark_as_read) to
+                    activity.getString(if (conversation.read) R.string.mark_as_unread else R.string.mark_as_read)
+            )
+            add(R.id.cab_move_to_category to activity.getString(R.string.move_to_category))
+            if (activity.config.isArchiveAvailable) {
+                add(R.id.cab_archive to activity.getString(R.string.archive))
+            }
+            add(R.id.cab_delete to activity.getString(R.string.delete))
+            add(R.id.cab_conversation_details to activity.getString(R.string.conversation_details))
+            add(null to activity.getString(R.string.select_conversations))
+        }
+
+        AlertDialog.Builder(activity)
+            .setTitle(conversation.title)
+            .setItems(actions.map { it.second }.toTypedArray()) { _, which ->
+                val actionId = actions[which].first
+                startConversationSelection(position)
+                if (actionId != null) {
+                    actionItemPressed(actionId)
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
     override fun prepareActionMode(menu: Menu) {
         val selectedItems = getSelectedItems()
         val isSingleSelection = isOneItemSelected()
@@ -91,8 +135,10 @@ class ConversationsAdapter(
             R.id.cab_move_to_category -> showMoveToCategoryDialog()
             R.id.cab_mute_conversation -> toggleMuteConversation()
             R.id.cab_rename_conversation -> renameConversation(selectedItems.first())
-            R.id.cab_conversation_details ->
+            R.id.cab_conversation_details -> {
                 activity.launchConversationDetails(selectedItems.first().threadId)
+                finishActMode()
+            }
 
             R.id.cab_mark_as_read -> markAsRead()
             R.id.cab_mark_as_unread -> markAsUnread()
