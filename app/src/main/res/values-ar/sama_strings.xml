@@ -26,4 +26,5 @@
     <string name="otp_code_label">رمز التحقق</string>
     <string name="copy_otp_code">نسخ الرمز %1$s</string>
     <string name="otp_code_copied">تم نسخ رمز التحقق</string>
+    <string name="otp_code_copied_inline">تم النسخ ✓</string>
 </resources>
