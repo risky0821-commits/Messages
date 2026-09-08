@@ -22,6 +22,9 @@ interface CategoriesDao {
     @Query("UPDATE message_categories SET name = :name WHERE id = :categoryId")
     fun renameCategory(categoryId: Long, name: String)
 
+    @Query("UPDATE message_categories SET sort_order = :sortOrder WHERE id = :categoryId")
+    fun updateCategorySortOrder(categoryId: Long, sortOrder: Int)
+
     @Query("UPDATE message_categories SET show_in_all = :showInAll WHERE id = :categoryId")
     fun setCategoryShowInAll(categoryId: Long, showInAll: Boolean)
 
