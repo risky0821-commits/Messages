@@ -20,6 +20,7 @@ import org.fossify.commons.extensions.getProperTextColor
 import org.fossify.commons.helpers.ensureBackgroundThread
 import org.fossify.messages.R
 import org.fossify.messages.activities.SimpleActivity
+import org.fossify.messages.dialogs.ManageCategoryConversationsDialog
 import org.fossify.messages.dialogs.ReorderCategoriesDialog
 import org.fossify.messages.extensions.categoriesDB
 import org.fossify.messages.extensions.createMessageCategory
@@ -304,6 +305,7 @@ class CategoryTabsView @JvmOverloads constructor(
             context.getString(R.string.show_category_in_all)
         }
         val options = arrayOf(
+            context.getString(R.string.manage_conversations),
             visibilityLabel,
             context.getString(R.string.reorder_categories),
             context.getString(R.string.rename_category),
@@ -313,13 +315,22 @@ class CategoryTabsView @JvmOverloads constructor(
             .setTitle(category.name)
             .setItems(options) { _, which ->
                 when (which) {
-                    0 -> toggleCategoryShowInAll(category)
-                    1 -> showReorderCategoriesDialog()
-                    2 -> showRenameCategoryDialog(category)
-                    3 -> showDeleteCategoryDialog(category)
+                    0 -> showManageCategoryConversationsDialog(category)
+                    1 -> toggleCategoryShowInAll(category)
+                    2 -> showReorderCategoriesDialog()
+                    3 -> showRenameCategoryDialog(category)
+                    4 -> showDeleteCategoryDialog(category)
                 }
             }
             .show()
+    }
+
+    private fun showManageCategoryConversationsDialog(category: MessageCategory) {
+        val activity = context as? SimpleActivity ?: return
+        ManageCategoryConversationsDialog(activity, category) {
+            refreshTabs()
+            rootView.findViewById<CategoryPagerView>(R.id.category_pager)?.refreshNow()
+        }
     }
 
     private fun showReorderCategoriesDialog() {
