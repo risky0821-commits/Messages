@@ -35,5 +35,8 @@ fun Context.getCategoryUnreadCounts(): Map<Long, Int> {
 }
 
 fun Context.getTotalUnreadCount(): Int {
-    return conversationsDB.getNonArchived().sumOf { it.unreadCount }
+    val hiddenThreadIds = categoriesDB.getThreadIdsHiddenFromAll().toHashSet()
+    return conversationsDB.getNonArchived()
+        .filterNot { it.threadId in hiddenThreadIds }
+        .sumOf { it.unreadCount }
 }
