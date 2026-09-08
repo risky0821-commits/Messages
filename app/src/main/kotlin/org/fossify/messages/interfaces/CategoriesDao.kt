@@ -22,6 +22,9 @@ interface CategoriesDao {
     @Query("UPDATE message_categories SET name = :name WHERE id = :categoryId")
     fun renameCategory(categoryId: Long, name: String)
 
+    @Query("UPDATE message_categories SET show_in_all = :showInAll WHERE id = :categoryId")
+    fun setCategoryShowInAll(categoryId: Long, showInAll: Boolean)
+
     @Query("DELETE FROM message_categories WHERE id = :categoryId")
     fun deleteCategory(categoryId: Long)
 
@@ -54,6 +57,16 @@ interface CategoriesDao {
 
     @Query("SELECT thread_id FROM category_conversations WHERE category_id = :categoryId")
     fun getThreadIdsForCategory(categoryId: Long): List<Long>
+
+    @Query(
+        """
+        SELECT DISTINCT cc.thread_id
+        FROM category_conversations cc
+        INNER JOIN message_categories mc ON mc.id = cc.category_id
+        WHERE mc.show_in_all = 0
+        """
+    )
+    fun getThreadIdsHiddenFromAll(): List<Long>
 
     @Query(
         """
