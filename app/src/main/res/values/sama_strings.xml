@@ -12,6 +12,9 @@
     <string name="remove_from_category">Remove from category</string>
     <string name="manage_categories">Manage categories</string>
     <string name="reorder_categories">Reorder categories</string>
+    <string name="manage_conversations">Manage conversations</string>
+    <string name="manage_category_conversations">Manage %1$s conversations</string>
+    <string name="no_conversations_available">No conversations available</string>
     <string name="rename_category">Rename category</string>
     <string name="delete_category">Delete category</string>
     <string name="delete_category_confirmation">Delete "%1$s"? Messages will stay in All.</string>
