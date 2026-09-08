@@ -22,4 +22,7 @@
     <string name="appearance">المظهر</string>
     <string name="appearance_light">فاتح</string>
     <string name="appearance_dark">داكن</string>
+    <string name="otp_code_label">رمز التحقق</string>
+    <string name="copy_otp_code">نسخ الرمز %1$s</string>
+    <string name="otp_code_copied">تم نسخ رمز التحقق</string>
 </resources>
