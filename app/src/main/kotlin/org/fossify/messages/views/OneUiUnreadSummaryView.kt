@@ -1,16 +1,15 @@
 package org.fossify.messages.views
 
 import android.content.Context
-import android.graphics.Color
 import android.graphics.Typeface
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.View
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
-import com.google.android.material.card.MaterialCardView
 import org.fossify.commons.extensions.getProperTextColor
 import org.fossify.commons.views.MySearchMenu
 import org.fossify.messages.R
@@ -18,26 +17,30 @@ import org.fossify.messages.R
 class OneUiUnreadSummaryView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
-) : MaterialCardView(context, attrs) {
+) : FrameLayout(context, attrs) {
 
     private val titleView = TextView(context)
     private val actions = LinearLayout(context)
     private var collapseOffset = 0f
 
     init {
-        radius = 0f
-        cardElevation = 0f
-        setCardBackgroundColor(Color.TRANSPARENT)
-        setContentPadding(0, 0, 0, 0)
+        setBackgroundColor(android.graphics.Color.TRANSPARENT)
+        clipChildren = false
+        clipToPadding = false
 
-        val holder = RelativeLayout(context)
+        val holder = RelativeLayout(context).apply {
+            clipChildren = false
+            clipToPadding = false
+        }
 
         titleView.apply {
             text = context.getString(R.string.messages_title)
             textSize = 34f
             setTypeface(typeface, Typeface.BOLD)
-            gravity = Gravity.END or Gravity.CENTER_VERTICAL
+            gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL
+            textDirection = View.TEXT_DIRECTION_RTL
             setTextColor(context.getProperTextColor())
+            includeFontPadding = false
         }
 
         actions.apply {
@@ -53,9 +56,9 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
                 RelativeLayout.LayoutParams.WRAP_CONTENT,
                 dp(58),
             ).apply {
-                addRule(RelativeLayout.ALIGN_PARENT_END)
+                addRule(RelativeLayout.ALIGN_PARENT_RIGHT)
                 topMargin = dp(10)
-                marginEnd = dp(8)
+                rightMargin = dp(8)
             },
         )
 
@@ -65,17 +68,13 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
                 RelativeLayout.LayoutParams.WRAP_CONTENT,
                 dp(58),
             ).apply {
-                addRule(RelativeLayout.ALIGN_PARENT_START)
+                addRule(RelativeLayout.ALIGN_PARENT_LEFT)
                 topMargin = dp(10)
-                marginStart = dp(2)
+                leftMargin = dp(2)
             },
         )
 
-        addView(
-            holder,
-            LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
-        )
-
+        addView(holder, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         post { applyCollapseProgress() }
     }
 
@@ -101,8 +100,8 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
             setPadding(dp(10), dp(10), dp(10), dp(10))
             isClickable = true
             isFocusable = true
-            setOnClickListener { openCompactSearch() }
             layoutParams = LinearLayout.LayoutParams(dp(46), dp(46))
+            setOnClickListener { openCompactSearch() }
         }
     }
 
@@ -116,12 +115,12 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
             contentDescription = context.getString(R.string.more_options)
             isClickable = true
             isFocusable = true
+            layoutParams = LinearLayout.LayoutParams(dp(46), dp(46))
             setOnClickListener {
                 val menu = rootView.findViewById<MySearchMenu>(R.id.main_menu) ?: return@setOnClickListener
                 menu.visibility = View.INVISIBLE
                 menu.requireToolbar().showOverflowMenu()
             }
-            layoutParams = LinearLayout.LayoutParams(dp(46), dp(46))
         }
     }
 
@@ -145,23 +144,25 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
         menu.post { menu.focusView() }
     }
 
-    private fun collapseDistance(): Float = dp(160).toFloat()
+    private fun collapseDistance(): Float = dp(150).toFloat()
 
     private fun applyCollapseProgress() {
         val inbox = rootView.findViewById<View>(R.id.inbox_card) ?: return
         val raw = (collapseOffset / collapseDistance()).coerceIn(0f, 1f)
         val progress = raw * raw * (3f - 2f * raw)
 
+        // Keep the right edge of the Arabic title fixed while scaling, matching Samsung's header.
         titleView.pivotX = titleView.width.toFloat()
         titleView.pivotY = titleView.height / 2f
-        titleView.translationY = dp(72) * (1f - progress)
-        titleView.scaleX = 1f + (0.24f * (1f - progress))
-        titleView.scaleY = 1f + (0.24f * (1f - progress))
+        titleView.translationY = dp(70) * (1f - progress)
+        titleView.scaleX = 1f + (0.20f * (1f - progress))
+        titleView.scaleY = 1f + (0.20f * (1f - progress))
 
-        actions.translationY = dp(82) * (1f - progress)
+        actions.translationY = dp(78) * (1f - progress)
 
+        // Tabs/list rise smoothly, while the compact header remains fixed below the status bar.
         val expandedTop = dp(194).toFloat()
-        val compactTop = dp(82).toFloat()
+        val compactTop = dp(76).toFloat()
         inbox.translationY = expandedTop - ((expandedTop - compactTop) * progress)
     }
 
