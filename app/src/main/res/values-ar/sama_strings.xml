@@ -14,6 +14,8 @@
     <string name="rename_category">تغيير اسم الفئة</string>
     <string name="delete_category">حذف الفئة</string>
     <string name="delete_category_confirmation">حذف "%1$s"؟ الرسائل ستبقى في تبويب الكل.</string>
+    <string name="hide_category_from_all">إخفاء من تبويب الكل</string>
+    <string name="show_category_in_all">إظهار في تبويب الكل</string>
     <string name="no_category">بدون فئة</string>
     <string name="mute_conversation">كتم إشعارات هذه المحادثة</string>
     <string name="unmute_conversation">إلغاء كتم إشعارات هذه المحادثة</string>
