@@ -22,11 +22,13 @@ import org.fossify.commons.helpers.FontHelper
 import org.fossify.commons.helpers.SimpleContactsHelper
 import org.fossify.commons.helpers.ensureBackgroundThread
 import org.fossify.commons.views.MyRecyclerView
+import org.fossify.messages.R
 import org.fossify.messages.activities.SimpleActivity
 import org.fossify.messages.databinding.ItemConversationBinding
 import org.fossify.messages.extensions.config
 import org.fossify.messages.extensions.getAllDrafts
 import org.fossify.messages.models.Conversation
+import org.fossify.messages.views.OneUiUnreadSummaryView
 
 @Suppress("LeakingThis")
 abstract class BaseConversationsAdapter(
@@ -108,9 +110,15 @@ abstract class BaseConversationsAdapter(
 
     override fun getItemKeyPosition(key: Int) = currentList.indexOfFirst { it.hashCode() == key }
 
-    override fun onActionModeCreated() {}
+    override fun onActionModeCreated() {
+        activity.findViewById<OneUiUnreadSummaryView>(R.id.unread_summary_card)
+            ?.setSelectionMode(true)
+    }
 
-    override fun onActionModeDestroyed() {}
+    override fun onActionModeDestroyed() {
+        activity.findViewById<OneUiUnreadSummaryView>(R.id.unread_summary_card)
+            ?.setSelectionMode(false)
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val binding = ItemConversationBinding.inflate(layoutInflater, parent, false)
@@ -201,7 +209,6 @@ abstract class BaseConversationsAdapter(
             }
 
             setupBadgeCount(unreadCountBadge, isUnread, conversation.unreadCount)
-            // at group conversations we use an icon as the placeholder, not any letter
             val placeholder = if (conversation.isGroupConversation) {
                 SimpleContactsHelper(activity).getColoredGroupIcon(conversation.title)
             } else {
