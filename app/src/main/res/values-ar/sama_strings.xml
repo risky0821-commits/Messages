@@ -11,6 +11,7 @@
     <string name="move_to_category">نقل إلى فئة</string>
     <string name="remove_from_category">إزالة من الفئة</string>
     <string name="manage_categories">إدارة الفئات</string>
+    <string name="reorder_categories">إعادة ترتيب الفئات</string>
     <string name="rename_category">تغيير اسم الفئة</string>
     <string name="delete_category">حذف الفئة</string>
     <string name="delete_category_confirmation">حذف "%1$s"؟ الرسائل ستبقى في تبويب الكل.</string>
