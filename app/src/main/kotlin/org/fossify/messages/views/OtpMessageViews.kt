@@ -12,9 +12,9 @@ import org.fossify.commons.extensions.getProperPrimaryColor
 import org.fossify.commons.views.MyTextView
 import org.fossify.messages.R
 
-class OtpAwareMessageTextView @JvmOverloads constructor(
+class OtpAwareMessageTextView constructor(
     context: Context,
-    attrs: AttributeSet? = null,
+    attrs: AttributeSet,
 ) : MyTextView(context, attrs) {
 
     override fun setText(text: CharSequence?, type: TextView.BufferType?) {
@@ -28,9 +28,9 @@ class OtpAwareMessageTextView @JvmOverloads constructor(
     }
 }
 
-class OtpCopyTextView @JvmOverloads constructor(
+class OtpCopyTextView constructor(
     context: Context,
-    attrs: AttributeSet? = null,
+    attrs: AttributeSet,
 ) : MyTextView(context, attrs) {
 
     private var otpCode: String? = null
