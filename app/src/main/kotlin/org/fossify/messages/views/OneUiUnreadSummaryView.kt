@@ -9,6 +9,7 @@ import android.view.Gravity
 import android.view.View
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
+import android.widget.RelativeLayout
 import android.widget.TextView
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.color.MaterialColors
@@ -35,6 +36,9 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
     private val actionText = TextView(context)
     private var registeredToBus = false
     private var collapseOffset = 0f
+    private var expandedHeight = 0
+    private var expandedTopMargin = 0
+    private var collapsedLayoutCommitted = false
 
     init {
         radius = dp(32).toFloat()
@@ -121,6 +125,7 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        captureExpandedLayout()
         if (!registeredToBus) {
             EventBus.getDefault().register(this)
             registeredToBus = true
@@ -170,14 +175,66 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
     }
 
     fun onConversationScrolled(dy: Int, canScrollUp: Boolean) {
+        captureExpandedLayout()
+        val inboxCard = rootView.findViewById<View>(R.id.inbox_card) ?: return
         val distance = collapseDistance()
+
+        if (collapsedLayoutCommitted) {
+            if (!canScrollUp && dy < 0) {
+                restoreExpandedLayoutForAnimation(inboxCard, distance)
+            } else {
+                return
+            }
+        }
+
         collapseOffset = if (!canScrollUp && dy <= 0) {
-            0f
+            (collapseOffset + dy).coerceAtLeast(0f)
         } else {
             (collapseOffset + dy).coerceIn(0f, distance)
         }
-        val inboxCard = rootView.findViewById<View>(R.id.inbox_card) ?: return
+
         applyCollapseProgress(inboxCard, distance)
+
+        if (!collapsedLayoutCommitted && collapseOffset >= distance - 0.5f) {
+            commitCollapsedLayout(inboxCard)
+        }
+    }
+
+    private fun captureExpandedLayout() {
+        if (expandedHeight > 0) return
+        val params = layoutParams as? RelativeLayout.LayoutParams ?: return
+        if (params.height > 0) {
+            expandedHeight = params.height
+            expandedTopMargin = params.topMargin
+        }
+    }
+
+    private fun restoreExpandedLayoutForAnimation(inboxCard: View, distance: Float) {
+        val params = layoutParams as? RelativeLayout.LayoutParams ?: return
+        inboxCard.translationY = -distance
+        params.height = expandedHeight
+        params.topMargin = expandedTopMargin
+        layoutParams = params
+        collapsedLayoutCommitted = false
+        collapseOffset = distance
+        alpha = 0f
+        scaleX = 0.82f
+        scaleY = 0.82f
+        translationY = -dp(36).toFloat()
+    }
+
+    private fun commitCollapsedLayout(inboxCard: View) {
+        val params = layoutParams as? RelativeLayout.LayoutParams ?: return
+        params.height = 0
+        params.topMargin = 0
+        layoutParams = params
+        inboxCard.translationY = 0f
+        collapseOffset = collapseDistance()
+        collapsedLayoutCommitted = true
+        alpha = 0f
+        scaleX = 0.82f
+        scaleY = 0.82f
+        translationY = 0f
     }
 
     private fun makeCategoryChip(title: String, unreadCount: Int, categoryId: Long): TextView {
@@ -210,7 +267,10 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
         rootView.findViewById<CategoryTabsView>(R.id.category_tabs)?.showUnreadOnlyConversations()
     }
 
-    private fun collapseDistance(): Float = dp(210).toFloat()
+    private fun collapseDistance(): Float {
+        captureExpandedLayout()
+        return (expandedHeight + expandedTopMargin).coerceAtLeast(dp(250)).toFloat()
+    }
 
     private fun applyCollapseProgress(inboxCard: View, distance: Float) {
         val raw = (collapseOffset / distance).coerceIn(0f, 1f)
@@ -223,7 +283,7 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
         scaleX = 1f - (0.18f * progress)
         scaleY = 1f - (0.18f * progress)
 
-        inboxCard.translationY = -(dp(218) * progress)
+        inboxCard.translationY = -(distance * progress)
     }
 
     private fun withAlpha(color: Int, alpha: Int): Int {
