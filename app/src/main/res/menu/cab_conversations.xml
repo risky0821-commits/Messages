@@ -16,17 +16,23 @@
         android:title="@string/unpin_conversation"
         app:showAsAction="always" />
     <item
+        android:id="@+id/cab_mute_conversation"
+        android:icon="@drawable/ic_notifications_off_vector"
+        android:showAsAction="always"
+        android:title="@string/mute_conversation"
+        app:showAsAction="always" />
+    <item
         android:id="@+id/cab_dial_number"
         android:icon="@drawable/ic_phone_vector"
-        android:showAsAction="always"
+        android:showAsAction="ifRoom"
         android:title="@string/dial_number"
-        app:showAsAction="always" />
+        app:showAsAction="ifRoom" />
     <item
         android:id="@+id/cab_archive"
         android:icon="@drawable/ic_archive_vector"
-        android:showAsAction="always"
+        android:showAsAction="ifRoom"
         android:title="@string/archive"
-        app:showAsAction="always" />
+        app:showAsAction="ifRoom" />
     <item
         android:id="@+id/cab_delete"
         android:icon="@drawable/ic_delete_vector"
@@ -43,11 +49,6 @@
         android:id="@+id/cab_move_to_category"
         android:showAsAction="never"
         android:title="@string/move_to_category"
-        app:showAsAction="never" />
-    <item
-        android:id="@+id/cab_mute_conversation"
-        android:showAsAction="never"
-        android:title="@string/mute_conversation"
         app:showAsAction="never" />
     <item
         android:id="@+id/cab_mark_as_read"
