@@ -120,6 +120,23 @@ abstract class BaseConversationsAdapter(
             ?.setSelectionMode(false)
     }
 
+    protected open fun usesDirectLongPressActions() = false
+
+    protected open fun onConversationLongPressed(conversation: Conversation, position: Int) = Unit
+
+    protected fun startConversationSelection(position: Int) {
+        if (position !in currentList.indices) {
+            return
+        }
+
+        if (!actModeCallback.isSelectable) {
+            activity.startActionMode(actModeCallback)
+        }
+
+        toggleItemSelection(true, position, true)
+        itemLongClicked(position)
+    }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val binding = ItemConversationBinding.inflate(layoutInflater, parent, false)
         return createViewHolder(binding.root)
@@ -134,6 +151,23 @@ abstract class BaseConversationsAdapter(
         ) { itemView, _ ->
             setupView(itemView, conversation)
         }
+
+        if (usesDirectLongPressActions()) {
+            holder.itemView.setOnLongClickListener {
+                val currentPosition = holder.bindingAdapterPosition
+                if (currentPosition == RecyclerView.NO_POSITION) {
+                    return@setOnLongClickListener true
+                }
+
+                if (actModeCallback.isSelectable) {
+                    holder.viewLongClicked()
+                } else {
+                    onConversationLongPressed(currentList[currentPosition], currentPosition)
+                }
+                true
+            }
+        }
+
         bindViewHolder(holder)
     }
 
