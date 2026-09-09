@@ -61,6 +61,9 @@ interface CategoriesDao {
     @Query("SELECT thread_id FROM category_conversations WHERE category_id = :categoryId")
     fun getThreadIdsForCategory(categoryId: Long): List<Long>
 
+    @Query("SELECT * FROM category_conversations")
+    fun getAllConversationMappings(): List<CategoryConversation>
+
     @Query(
         """
         SELECT DISTINCT cc.thread_id
@@ -91,3 +94,4 @@ interface CategoriesDao {
     )
     fun getUnreadCount(categoryId: Long): Int
 }
+
