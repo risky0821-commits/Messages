@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
+trap 'echo "::error::Upgrade verification failed at line $LINENO"' ERR
 
 readarray -t reference_apks < <(find "$1" -type f -name '*.apk')
 readarray -t candidate_apks < <(find "$2" -type f -name '*.apk')
+printf 'Reference APK count: %s; candidate APK count: %s\n' "${#reference_apks[@]}" "${#candidate_apks[@]}"
 test "${#reference_apks[@]}" -eq 1
 test "${#candidate_apks[@]}" -eq 1
 reference="${reference_apks[0]}"
@@ -11,8 +13,8 @@ build_tools=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d |
 apksigner="$build_tools/apksigner"
 aapt="$build_tools/aapt"
 
-"$apksigner" verify --print-certs "$reference" > reference-certificate.txt
-"$apksigner" verify --print-certs "$candidate" > candidate-certificate.txt
+"$apksigner" verify --print-certs "$reference" | tee reference-certificate.txt
+"$apksigner" verify --print-certs "$candidate" | tee candidate-certificate.txt
 reference_cert=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' reference-certificate.txt)
 candidate_cert=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' candidate-certificate.txt)
 test -n "$reference_cert"
