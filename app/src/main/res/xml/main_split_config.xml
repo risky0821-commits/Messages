@@ -9,7 +9,7 @@
         window:finishSecondaryWithPrimary="always"
         window:clearTop="true">
         <SplitPairFilter
-            window:primaryActivityName=".activities.MainActivity"
-            window:secondaryActivityName=".activities.ThreadActivity" />
+            window:primaryActivityName="org.fossify.messages.activities.MainActivity"
+            window:secondaryActivityName="org.fossify.messages.activities.ThreadActivity" />
     </SplitPairRule>
 </resources>
