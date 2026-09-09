@@ -9,9 +9,14 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,35 +31,34 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Restore stable Sama debug signing key
-        uses: actions/cache@v4
+      - name: Restore existing Sama debug signing key
+        uses: actions/cache/restore@v4
         with:
           path: ~/.android/debug.keystore
           key: sama-debug-keystore-v1
 
-      - name: Restore stable debug signing key from GitHub secret
+      - name: Restore signing key from secret when configured
         env:
           SAMA_DEBUG_KEYSTORE_BASE64: ${{ secrets.SAMA_DEBUG_KEYSTORE_BASE64 }}
+        shell: bash
         run: |
+          set -euo pipefail
           if [ -n "${SAMA_DEBUG_KEYSTORE_BASE64:-}" ]; then
             mkdir -p "$HOME/.android"
-            echo "$SAMA_DEBUG_KEYSTORE_BASE64" | base64 --decode > "$HOME/.android/debug.keystore"
+            umask 077
+            printf '%s' "$SAMA_DEBUG_KEYSTORE_BASE64" | base64 --decode > "$HOME/.android/debug.keystore"
+            echo "Signing source: repository secret"
+          else
+            echo "::warning::Signing source: legacy cache. Permanent secret setup is still required."
           fi
+          if [ ! -s "$HOME/.android/debug.keystore" ]; then
+            echo "::error::Existing signing key is missing. Refusing to generate an incompatible replacement."
+            exit 1
+          fi
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey > /dev/null
 
-      - name: Create stable debug signing key if missing
-        run: |
-          if [ ! -f "$HOME/.android/debug.keystore" ]; then
-            mkdir -p "$HOME/.android"
-            keytool -genkeypair \
-              -keystore "$HOME/.android/debug.keystore" \
-              -storepass android \
-              -alias androiddebugkey \
-              -keypass android \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
-          fi
+      - name: Check database migration SQL
+        run: python3 scripts/check_database_migrations.py
 
       - name: Make Gradle executable
         run: chmod +x gradlew
@@ -62,9 +66,25 @@ jobs:
       - name: Build Foss debug APK
         run: ./gradlew assembleFossDebug -PVERSION_CODE=${{ github.run_number }} --stacktrace
 
-      - name: Upload APK
+      - name: Download installed Build 176 as compatibility reference
+        uses: actions/download-artifact@v4
+        with:
+          name: Sama-debug-apk
+          run-id: 34320608051
+          github-token: ${{ github.token }}
+          path: reference-apk
+
+      - name: Verify signature and upgrade compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/verify-upgrade.sh reference-apk app/build/outputs/apk/foss/debug | tee upgrade-verification.txt
+
+      - name: Upload verified APK
         uses: actions/upload-artifact@v4
         with:
           name: Sama-debug-apk
-          path: app/build/outputs/apk/foss/debug/*.apk
+          path: |
+            app/build/outputs/apk/foss/debug/*.apk
+            upgrade-verification.txt
           if-no-files-found: error

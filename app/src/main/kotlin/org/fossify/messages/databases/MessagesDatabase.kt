@@ -53,6 +53,7 @@ abstract class MessagesDatabase : RoomDatabase() {
     abstract fun CategoriesDao(): CategoriesDao
 
     companion object {
+        @Volatile
         private var db: MessagesDatabase? = null
 
         fun getInstance(context: Context): MessagesDatabase {
@@ -64,7 +65,8 @@ abstract class MessagesDatabase : RoomDatabase() {
                             klass = MessagesDatabase::class.java,
                             name = "conversations.db"
                         )
-                            .fallbackToDestructiveMigration()
+                            // Preserve user-owned categories and drafts if a migration is missing.
+                            // Room must fail to open rather than silently recreate this database.
                             .addMigrations(MIGRATION_1_2)
                             .addMigrations(MIGRATION_2_3)
                             .addMigrations(MIGRATION_3_4)
@@ -192,3 +194,4 @@ abstract class MessagesDatabase : RoomDatabase() {
         }
     }
 }
+
