@@ -43,6 +43,13 @@ android {
     }
 
     signingConfigs {
+        register("samaDebug") {
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+            storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
+            storePassword = "android"
+        }
+
         if (keystorePropertiesFile.exists()) {
             register("release") {
                 keyAlias = keystoreProperties.getProperty("keyAlias")
@@ -58,7 +65,7 @@ android {
                 storePassword = providers.environmentVariable("SIGNING_STORE_PASSWORD").get()
             }
         } else {
-            logger.warn("Warning: No signing config found. Build will be unsigned.")
+            logger.warn("Warning: No release signing config found.")
         }
     }
 
@@ -70,6 +77,7 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
+            signingConfig = signingConfigs.getByName("samaDebug")
         }
         release {
             isMinifyEnabled = true
