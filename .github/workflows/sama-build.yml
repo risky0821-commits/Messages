@@ -11,7 +11,6 @@ on:
 
 permissions:
   contents: read
-  actions: read
 
 jobs:
   build:
@@ -66,19 +65,11 @@ jobs:
       - name: Build Foss debug APK
         run: ./gradlew assembleFossDebug -PVERSION_CODE=${{ github.run_number }} --stacktrace
 
-      - name: Download installed Build 176 as compatibility reference
-        uses: actions/download-artifact@v4
-        with:
-          name: Sama-debug-apk
-          run-id: 34320608051
-          github-token: ${{ github.token }}
-          path: reference-apk
-
       - name: Verify signature and upgrade compatibility
         shell: bash
         run: |
           set -euo pipefail
-          bash scripts/verify-upgrade.sh reference-apk app/build/outputs/apk/foss/debug | tee upgrade-verification.txt
+          bash scripts/verify-upgrade.sh app/build/outputs/apk/foss/debug | tee upgrade-verification.txt
 
       - name: Upload verified APK
         uses: actions/upload-artifact@v4
