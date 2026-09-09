@@ -318,8 +318,10 @@ class MainActivity : SimpleActivity() {
     }
 
     private fun getNewConversations(cachedConversations: ArrayList<Conversation>) {
-        val privateCursor = getMyContactsCursor(favoritesOnly = false, withPhoneNumbersOnly = true)
         ensureBackgroundThread {
+            // Create and consume the contacts cursor on the worker thread. Provider cursors
+            // should not be opened on the caller thread and consumed asynchronously.
+            val privateCursor = getMyContactsCursor(favoritesOnly = false, withPhoneNumbersOnly = true)
             val privateContacts = MyContactsContentProvider.getSimpleContacts(this, privateCursor)
             val conversations = getConversations(privateContacts = privateContacts)
             val cachedThreadIds = cachedConversations.mapTo(HashSet()) { it.threadId }
