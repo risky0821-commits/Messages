@@ -8,6 +8,8 @@ import android.content.pm.ShortcutManager
 import android.graphics.drawable.Icon
 import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Telephony
 import android.text.TextUtils
 import androidx.appcompat.content.res.AppCompatResources
@@ -82,6 +84,8 @@ class MainActivity : SimpleActivity() {
     private var storedTextColor = 0
     private var storedFontSize = 0
     private var lastSearchedText = ""
+    private val searchHandler = Handler(Looper.getMainLooper())
+    private var pendingSearch: Runnable? = null
     private var bus: EventBus? = null
 
     private val binding by viewBinding(ActivityMainBinding::inflate)
@@ -141,6 +145,7 @@ class MainActivity : SimpleActivity() {
     }
 
     override fun onDestroy() {
+        pendingSearch?.let(searchHandler::removeCallbacks)
         super.onDestroy()
         bus?.unregister(this)
     }
@@ -525,16 +530,20 @@ class MainActivity : SimpleActivity() {
         }
 
         lastSearchedText = text
+        pendingSearch?.let(searchHandler::removeCallbacks)
         binding.searchPlaceholder2.beGoneIf(text.length >= 2)
         if (text.length >= 2) {
-            ensureBackgroundThread {
-                val searchQuery = "%$text%"
-                val messages = messagesDB.getMessagesWithText(searchQuery)
-                val conversations = conversationsDB.getConversationsWithText(searchQuery)
-                if (text == lastSearchedText) {
-                    showSearchResults(messages, conversations, text)
+            pendingSearch = Runnable {
+                ensureBackgroundThread {
+                    val searchQuery = "%$text%"
+                    val messages = messagesDB.getMessagesWithText(searchQuery)
+                    val conversations = conversationsDB.getConversationsWithText(searchQuery)
+                    if (text == lastSearchedText) {
+                        showSearchResults(messages, conversations, text)
+                    }
                 }
             }
+            searchHandler.postDelayed(pendingSearch!!, 250L)
         } else {
             binding.searchPlaceholder.beVisible()
             binding.searchResultsList.beGone()
@@ -684,3 +693,4 @@ class MainActivity : SimpleActivity() {
         }
     }
 }
+
