@@ -322,10 +322,12 @@ class MainActivity : SimpleActivity() {
         ensureBackgroundThread {
             val privateContacts = MyContactsContentProvider.getSimpleContacts(this, privateCursor)
             val conversations = getConversations(privateContacts = privateContacts)
+            val cachedThreadIds = cachedConversations.mapTo(HashSet()) { it.threadId }
+            val currentByThreadId = conversations.associateBy { it.threadId }
+            val currentByPhoneNumber = conversations.associateBy { it.phoneNumber }
 
             conversations.forEach { clonedConversation ->
-                val threadIds = cachedConversations.map { it.threadId }
-                if (!threadIds.contains(clonedConversation.threadId)) {
+                if (cachedThreadIds.add(clonedConversation.threadId)) {
                     conversationsDB.insertOrUpdate(clonedConversation)
                     cachedConversations.add(clonedConversation)
                 }
@@ -335,13 +337,12 @@ class MainActivity : SimpleActivity() {
                 val threadId = cachedConversation.threadId
 
                 val isTemporaryThread = cachedConversation.isScheduled
-                val isConversationDeleted = !conversations.map { it.threadId }.contains(threadId)
+                val isConversationDeleted = !currentByThreadId.containsKey(threadId)
                 if (isConversationDeleted && !isTemporaryThread) {
                     conversationsDB.deleteThreadId(threadId)
                 }
 
-                val newConversation =
-                    conversations.find { it.phoneNumber == cachedConversation.phoneNumber }
+                val newConversation = currentByPhoneNumber[cachedConversation.phoneNumber]
                 if (isTemporaryThread && newConversation != null) {
                     // delete the original temporary thread and move any scheduled messages
                     // to the new thread
@@ -357,11 +358,8 @@ class MainActivity : SimpleActivity() {
             }
 
             cachedConversations.forEach { cachedConv ->
-                val conv = conversations.find {
-                    it.threadId == cachedConv.threadId && !Conversation.areContentsTheSame(
-                        old = cachedConv, new = it
-                    )
-                }
+                val conv = currentByThreadId[cachedConv.threadId]
+                    ?.takeUnless { Conversation.areContentsTheSame(old = cachedConv, new = it) }
                 if (conv != null) {
                     // FIXME: Scheduled message date is being reset here. Conversations with
                     //  scheduled messages will have their original date.
