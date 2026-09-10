@@ -1,0 +1,32 @@
+name: One UI compatibility preview
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'experiments/oneui-preview/**'
+      - '.github/workflows/oneui-preview.yml'
+permissions:
+  contents: read
+  packages: read
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Build isolated UI preview
+        env:
+          ONEUI_PACKAGES_TOKEN: ${{ secrets.ONEUI_PACKAGES_TOKEN || github.token }}
+        run: |
+          chmod +x gradlew
+          ./gradlew -p experiments/oneui-preview assembleDebug --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sama-OneUI-preview
+          path: experiments/oneui-preview/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
