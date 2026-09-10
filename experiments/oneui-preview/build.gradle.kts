@@ -2,6 +2,7 @@ plugins { id("com.android.application") version "9.3.1" }
 android {
     namespace = "org.fossify.sama.preview"
     compileSdk = 37
+    compileSdkMinor = 1
     defaultConfig {
         applicationId = "org.fossify.sama.preview"
         minSdk = 26
