@@ -315,7 +315,7 @@ class ConversationsAdapter(
         }
 
         val conversationsToRemove =
-            currentList.filter { selectedKeys.contains(it.hashCode()) } as ArrayList<Conversation>
+            currentList.filter { selectedKeys.contains(selectionKey(it)) } as ArrayList<Conversation>
         conversationsToRemove.forEach {
             activity.updateConversationArchivedStatus(it.threadId, true)
             activity.notificationManager.cancel(it.threadId.hashCode())
@@ -328,7 +328,7 @@ class ConversationsAdapter(
         }
 
         activity.runOnUiThread {
-            if (newList.none { selectedKeys.contains(it.hashCode()) }) {
+            if (newList.none { selectedKeys.contains(selectionKey(it)) }) {
                 refreshConversations()
                 finishActMode()
             } else {
@@ -346,7 +346,7 @@ class ConversationsAdapter(
         }
 
         val conversationsToRemove =
-            currentList.filter { selectedKeys.contains(it.hashCode()) } as ArrayList<Conversation>
+            currentList.filter { selectedKeys.contains(selectionKey(it)) } as ArrayList<Conversation>
         conversationsToRemove.forEach {
             activity.categoriesDB.removeConversationFromAllCategories(it.threadId)
             activity.deleteConversation(it.threadId)
@@ -360,7 +360,7 @@ class ConversationsAdapter(
         }
 
         activity.runOnUiThread {
-            if (newList.none { selectedKeys.contains(it.hashCode()) }) {
+            if (newList.none { selectedKeys.contains(selectionKey(it)) }) {
                 refreshConversations()
                 finishActMode()
             } else {
@@ -393,7 +393,7 @@ class ConversationsAdapter(
         }
 
         val conversationsMarkedAsRead =
-            currentList.filter { selectedKeys.contains(it.hashCode()) } as ArrayList<Conversation>
+            currentList.filter { selectedKeys.contains(selectionKey(it)) } as ArrayList<Conversation>
         ensureBackgroundThread {
             conversationsMarkedAsRead.filter { conversation -> !conversation.read }.forEach {
                 activity.markThreadMessagesRead(it.threadId)
@@ -408,7 +408,7 @@ class ConversationsAdapter(
         }
 
         val conversationsMarkedAsUnread =
-            currentList.filter { selectedKeys.contains(it.hashCode()) } as ArrayList<Conversation>
+            currentList.filter { selectedKeys.contains(selectionKey(it)) } as ArrayList<Conversation>
         ensureBackgroundThread {
             conversationsMarkedAsUnread.filter { conversation -> conversation.read }.forEach {
                 activity.markThreadMessagesUnread(it.threadId)

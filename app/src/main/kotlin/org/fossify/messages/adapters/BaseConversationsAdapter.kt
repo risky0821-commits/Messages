@@ -46,6 +46,11 @@ abstract class BaseConversationsAdapter(
     RecyclerViewFastScroller.OnPopupTextUpdate {
     private var fontSize = activity.getTextSize()
     private var drafts = HashMap<Long, String>()
+    private val selectionKeysByThread = HashMap<Long, Int>()
+    private var nextSelectionKey = 0
+
+    protected fun selectionKey(conversation: Conversation): Int =
+        selectionKeysByThread.getOrPut(conversation.threadId) { nextSelectionKey++ }
 
     private var recyclerViewState: Parcelable? = null
 
@@ -101,14 +106,14 @@ abstract class BaseConversationsAdapter(
     override fun getSelectableItemCount() = itemCount
 
     protected fun getSelectedItems() = currentList.filter {
-        selectedKeys.contains(it.hashCode())
+        selectedKeys.contains(selectionKey(it))
     } as ArrayList<Conversation>
 
     override fun getIsItemSelectable(position: Int) = true
 
-    override fun getItemSelectionKey(position: Int) = currentList.getOrNull(position)?.hashCode()
+    override fun getItemSelectionKey(position: Int) = currentList.getOrNull(position)?.let { selectionKey(it) }
 
-    override fun getItemKeyPosition(key: Int) = currentList.indexOfFirst { it.hashCode() == key }
+    override fun getItemKeyPosition(key: Int) = currentList.indexOfFirst { selectionKey(it) == key }
 
     override fun onActionModeCreated() {
         activity.findViewById<OneUiUnreadSummaryView>(R.id.unread_summary_card)
@@ -171,6 +176,14 @@ abstract class BaseConversationsAdapter(
         bindViewHolder(holder)
     }
 
+    override fun onBindViewHolder(holder: ViewHolder, position: Int, payloads: MutableList<Any>) {
+        // Read current selection instead of replaying an older queued payload.
+        super.onBindViewHolder(holder, position, payloads)
+        val selected = selectedKeys.contains(selectionKey(getItem(position)))
+        holder.itemView.isSelected = selected
+        ItemConversationBinding.bind(holder.itemView).conversationFrame.isSelected = selected
+    }
+
     override fun getItemId(position: Int) = getItem(position).threadId
 
     override fun onViewRecycled(holder: ViewHolder) {
@@ -203,7 +216,7 @@ abstract class BaseConversationsAdapter(
             )
             pinIndicator.applyColorFilter(textColor)
 
-            conversationFrame.isSelected = selectedKeys.contains(conversation.hashCode())
+            conversationFrame.isSelected = selectedKeys.contains(selectionKey(conversation))
 
             conversationAddress.apply {
                 text = conversation.title
