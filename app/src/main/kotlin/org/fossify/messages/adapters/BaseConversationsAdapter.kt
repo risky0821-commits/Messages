@@ -85,7 +85,7 @@ abstract class BaseConversationsAdapter(
 
     fun refreshVisualIndicators() {
         if (itemCount > 0) {
-            notifyItemRangeChanged(0, itemCount)
+            notifyItemRangeChanged(0, itemCount, VISUAL_INDICATORS_PAYLOAD)
         }
     }
 
@@ -178,7 +178,11 @@ abstract class BaseConversationsAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int, payloads: MutableList<Any>) {
         // Read current selection instead of replaying an older queued payload.
-        super.onBindViewHolder(holder, position, payloads)
+        if (payloads.isNotEmpty() && payloads.all { it == VISUAL_INDICATORS_PAYLOAD }) {
+            bindVisualIndicators(ItemConversationBinding.bind(holder.itemView), getItem(position))
+        } else {
+            super.onBindViewHolder(holder, position, payloads)
+        }
         val selected = selectedKeys.contains(selectionKey(getItem(position)))
         holder.itemView.isSelected = selected
         ItemConversationBinding.bind(holder.itemView).conversationFrame.isSelected = selected
@@ -201,13 +205,8 @@ abstract class BaseConversationsAdapter(
         }
     }
 
-    private fun setupView(view: View, conversation: Conversation) {
-        ItemConversationBinding.bind(view).apply {
-            root.setupViewBackground(activity)
-            val smsDraft = drafts[conversation.threadId]
-            draftIndicator.beVisibleIf(!smsDraft.isNullOrEmpty())
-            draftIndicator.setTextColor(properPrimaryColor)
-
+    private fun bindVisualIndicators(binding: ItemConversationBinding, conversation: Conversation) {
+        binding.apply {
             muteIndicator.beVisibleIf(activity.config.isConversationMuted(conversation.threadId))
             muteIndicator.applyColorFilter(textColor)
 
@@ -215,6 +214,18 @@ abstract class BaseConversationsAdapter(
                 activity.config.pinnedConversations.contains(conversation.threadId.toString())
             )
             pinIndicator.applyColorFilter(textColor)
+
+        }
+    }
+
+    private fun setupView(view: View, conversation: Conversation) {
+        ItemConversationBinding.bind(view).apply {
+            root.setupViewBackground(activity)
+            val smsDraft = drafts[conversation.threadId]
+            draftIndicator.beVisibleIf(!smsDraft.isNullOrEmpty())
+            draftIndicator.setTextColor(properPrimaryColor)
+
+            bindVisualIndicators(this, conversation)
 
             conversationFrame.isSelected = selectedKeys.contains(selectionKey(conversation))
 
@@ -307,6 +318,7 @@ abstract class BaseConversationsAdapter(
     }
 
     companion object {
+        private const val VISUAL_INDICATORS_PAYLOAD = "visual_indicators"
         private const val MAX_UNREAD_BADGE_COUNT = 99
     }
 }
