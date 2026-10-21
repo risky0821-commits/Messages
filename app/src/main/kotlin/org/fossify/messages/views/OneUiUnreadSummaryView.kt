@@ -10,6 +10,8 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
+import org.fossify.commons.helpers.ensureBackgroundThread
+import org.fossify.messages.extensions.getTotalUnreadCount
 import org.fossify.commons.extensions.getProperTextColor
 import org.fossify.commons.views.MySearchMenu
 import org.fossify.messages.R
@@ -21,6 +23,7 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
 
     private val titleView = TextView(context)
     private val actions = LinearLayout(context)
+    private val unreadSummary = TextView(context)
     private var collapseOffset = 0f
     private var selectionMode = false
 
@@ -42,6 +45,21 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
             textDirection = View.TEXT_DIRECTION_RTL
             setTextColor(context.getProperTextColor())
             includeFontPadding = false
+        }
+
+        unreadSummary.apply {
+            textSize = 14f
+            setTextColor(context.getProperTextColor())
+            gravity = Gravity.CENTER_VERTICAL
+            textDirection = View.TEXT_DIRECTION_LOCALE
+            visibility = View.GONE
+            setPadding(dp(8), 0, dp(8), 0)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                rootView.findViewById<CategoryTabsView>(R.id.category_tabs)
+                    ?.showUnreadOnlyConversations()
+            }
         }
 
         actions.apply {
@@ -75,13 +93,36 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
             },
         )
 
+        holder.addView(
+            unreadSummary,
+            RelativeLayout.LayoutParams(
+                RelativeLayout.LayoutParams.WRAP_CONTENT,
+                dp(42),
+            ).apply {
+                addRule(RelativeLayout.ALIGN_PARENT_RIGHT)
+                topMargin = dp(112)
+                rightMargin = dp(8)
+            }
+        )
+
         addView(holder, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         post { applyCollapseProgress() }
+        refreshSummary()
     }
 
-    fun refreshSummary() = Unit
+    fun refreshSummary() {
+        ensureBackgroundThread {
+            val unread = runCatching { context.getTotalUnreadCount() }.getOrDefault(0)
+            post {
+                unreadSummary.text = context.getString(R.string.unread_messages_summary, unread)
+                unreadSummary.visibility = if (unread > 0) View.VISIBLE else View.GONE
+            }
+        }
+    }
 
-    fun setCategorySummary(categoryId: Long?, title: String?) = Unit
+    fun setCategorySummary(categoryId: Long?, title: String?) {
+        refreshSummary()
+    }
 
     fun setSelectionMode(enabled: Boolean) {
         selectionMode = enabled
@@ -165,6 +206,7 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
         titleView.scaleY = 1f + (0.20f * (1f - progress))
 
         actions.translationY = dp(78) * (1f - progress)
+        unreadSummary.alpha = 1f - progress
 
         val expandedTop = dp(194).toFloat()
         val compactTop = dp(76).toFloat()
