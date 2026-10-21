@@ -38,8 +38,8 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
             text = context.getString(R.string.messages_title)
             textSize = 34f
             setTypeface(typeface, Typeface.BOLD)
-            gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL
-            textDirection = View.TEXT_DIRECTION_RTL
+            gravity = Gravity.END or Gravity.CENTER_VERTICAL
+            textDirection = View.TEXT_DIRECTION_LOCALE
             setTextColor(context.getProperTextColor())
             includeFontPadding = false
         }
@@ -57,9 +57,9 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
                 RelativeLayout.LayoutParams.WRAP_CONTENT,
                 dp(58),
             ).apply {
-                addRule(RelativeLayout.ALIGN_PARENT_RIGHT)
+                addRule(RelativeLayout.ALIGN_PARENT_END)
                 topMargin = dp(10)
-                rightMargin = dp(8)
+                marginEnd = dp(8)
             },
         )
 
@@ -69,9 +69,9 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
                 RelativeLayout.LayoutParams.WRAP_CONTENT,
                 dp(58),
             ).apply {
-                addRule(RelativeLayout.ALIGN_PARENT_LEFT)
+                addRule(RelativeLayout.ALIGN_PARENT_START)
                 topMargin = dp(10)
-                leftMargin = dp(2)
+                marginStart = dp(2)
             },
         )
 
@@ -158,7 +158,11 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
         val raw = (collapseOffset / collapseDistance()).coerceIn(0f, 1f)
         val progress = raw * raw * (3f - 2f * raw)
 
-        titleView.pivotX = titleView.width.toFloat()
+        titleView.pivotX = if (layoutDirection == View.LAYOUT_DIRECTION_RTL) {
+            titleView.width.toFloat()
+        } else {
+            0f
+        }
         titleView.pivotY = titleView.height / 2f
         titleView.translationY = dp(70) * (1f - progress)
         titleView.scaleX = 1f + (0.20f * (1f - progress))
