@@ -177,19 +177,30 @@ class CategoryTabsView @JvmOverloads constructor(
             }
         }
 
+        // One UI inspired rounded category chips, keeping existing category actions.
         val row = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(dp(12), dp(10), dp(12), dp(6))
+            setPadding(dp(16), dp(8), dp(16), dp(8))
+            minimumHeight = dp(40)
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(22).toFloat()
+                setColor(
+                    if (selected) withAlpha(textColor, 28)
+                    else withAlpha(textColor, 10)
+                )
+            }
         }
 
         val label = TextView(context).apply {
             text = title
             gravity = Gravity.CENTER
-            textSize = 16f
+            textSize = 14f
             setTypeface(typeface, if (selected) Typeface.BOLD else Typeface.NORMAL)
-            setTextColor(if (selected) textColor else withAlpha(textColor, 140))
+            setTextColor(if (selected) textColor else withAlpha(textColor, 185))
             includeFontPadding = false
+            maxLines = 1
         }
         row.addView(label)
 
@@ -219,27 +230,12 @@ class CategoryTabsView @JvmOverloads constructor(
             )
         }
 
-        val underline = View(context).apply {
-            setBackgroundColor(if (selected) textColor else Color.TRANSPARENT)
-        }
-
         holder.addView(
             row,
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
-                0,
-                1f,
-            ),
-        )
-        holder.addView(
-            underline,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(3),
-            ).apply {
-                marginStart = dp(10)
-                marginEnd = dp(10)
-            },
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            )
         )
         return holder
     }
