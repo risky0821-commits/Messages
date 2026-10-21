@@ -38,6 +38,11 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:theme="@style/AppTheme">
 
+        <!-- Enable AndroidX Activity Embedding split rules on supported devices. -->
+        <property
+            android:name="android.window.PROPERTY_ACTIVITY_EMBEDDING_SPLITS_ENABLED"
+            android:value="true" />
+
         <activity
             android:name=".activities.SplashActivity"
             android:exported="false"
