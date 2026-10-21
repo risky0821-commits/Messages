@@ -409,6 +409,7 @@ class MainActivity : SimpleActivity() {
         conversations: ArrayList<Conversation>,
         cached: Boolean = false,
     ) {
+        binding.unreadSummaryCard.refreshSummary()
         val sortedConversations = conversations
             .sortedWith(
                 compareByDescending<Conversation> {
