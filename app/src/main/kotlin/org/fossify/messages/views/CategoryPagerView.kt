@@ -129,6 +129,7 @@ class CategoryPagerView @JvmOverloads constructor(
         }
         refreshInFlight = true
         val generation = ++refreshGeneration
+        val requestedUnreadOnly = unreadOnly
         ensureBackgroundThread {
             val built = runCatching {
                 val categories = context.categoriesDB.getCategories()
@@ -138,7 +139,7 @@ class CategoryPagerView @JvmOverloads constructor(
                     .groupBy { it.categoryId }
                     .mapValues { (_, entries) -> entries.map { it.threadId }.toHashSet() }
                 ArrayList<Page>().apply {
-                    add(Page(null, if (unreadOnly) all.filter { !it.read }
+                    add(Page(null, if (requestedUnreadOnly) all.filter { !it.read }
                         else all.filterNot { it.threadId in hiddenFromAll }))
                     categories.forEach { category ->
                         val ids = mappings[category.id].orEmpty()
