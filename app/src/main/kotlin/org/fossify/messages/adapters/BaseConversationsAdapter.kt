@@ -45,6 +45,8 @@ abstract class BaseConversationsAdapter(
 ),
     RecyclerViewFastScroller.OnPopupTextUpdate {
     private var fontSize = activity.getTextSize()
+    // One helper per adapter instead of allocating one for every visible row.
+    private val contactsHelper by lazy(LazyThreadSafetyMode.NONE) { SimpleContactsHelper(activity) }
     private var drafts = HashMap<Long, String>()
     private val selectionKeysByThread = HashMap<Long, Int>()
     private var nextSelectionKey = 0
@@ -268,12 +270,12 @@ abstract class BaseConversationsAdapter(
 
             setupBadgeCount(unreadCountBadge, isUnread, conversation.unreadCount)
             val placeholder = if (conversation.isGroupConversation) {
-                SimpleContactsHelper(activity).getColoredGroupIcon(conversation.title)
+                contactsHelper.getColoredGroupIcon(conversation.title)
             } else {
                 null
             }
 
-            SimpleContactsHelper(activity).loadContactImage(
+            contactsHelper.loadContactImage(
                 path = conversation.photoUri,
                 imageView = conversationImage,
                 placeholderName = conversation.title,
