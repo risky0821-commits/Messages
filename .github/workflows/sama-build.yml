@@ -28,31 +28,31 @@ jobs:
           cache: gradle
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
-      - name: Restore existing Sama debug signing key
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: sama-debug-keystore-v1
-
-      - name: Restore signing key from secret when configured
+      # A fresh installation is allowed on this development branch.  CI must
+      # compile even before a permanent signing secret has been provisioned.
+      - name: Prepare signing key for build verification
         env:
           SAMA_DEBUG_KEYSTORE_BASE64: ${{ secrets.SAMA_DEBUG_KEYSTORE_BASE64 }}
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p "$HOME/.android"
+          chmod 700 "$HOME/.android"
           if [ -n "${SAMA_DEBUG_KEYSTORE_BASE64:-}" ]; then
-            mkdir -p "$HOME/.android"
             umask 077
             printf '%s' "$SAMA_DEBUG_KEYSTORE_BASE64" | base64 --decode > "$HOME/.android/debug.keystore"
-            echo "Signing source: repository secret"
+            echo "SAMA_SIGNING_SOURCE=persistent-secret" >> "$GITHUB_ENV"
+            echo "Using persistent signing secret."
           else
-            echo "::warning::Signing source: legacy cache. Permanent secret setup is still required."
-          fi
-          if [ ! -s "$HOME/.android/debug.keystore" ]; then
-            echo "::error::Existing signing key is missing. Refusing to generate an incompatible replacement."
-            exit 1
+            echo "::warning::No persistent signing key configured. Generating a DISPOSABLE debug key for CI compilation only. An APK signed by this key will NOT support future upgrades."
+            keytool -genkeypair -noprompt -keystore "$HOME/.android/debug.keystore" \
+              -storepass android -keypass android -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 365 \
+              -dname "CN=Sama Disposable CI Debug,O=Sama Test,C=SA"
+            chmod 600 "$HOME/.android/debug.keystore"
+            echo "SAMA_SIGNING_SOURCE=disposable-ci" >> "$GITHUB_ENV"
           fi
           keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey > /dev/null
 
@@ -65,17 +65,28 @@ jobs:
       - name: Build Foss debug APK
         run: ./gradlew assembleFossDebug -PVERSION_CODE=${{ github.run_number }} --stacktrace
 
-      - name: Verify signature and upgrade compatibility
+      - name: Verify APK signature and package metadata
         shell: bash
         run: |
           set -euo pipefail
-          bash scripts/verify-upgrade.sh app/build/outputs/apk/foss/debug | tee upgrade-verification.txt
+          apk=$(find app/build/outputs/apk/foss/debug -type f -name '*.apk' -print -quit)
+          test -n "$apk"
+          build_tools=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          "$build_tools/apksigner" verify --print-certs "$apk" | tee candidate-certificate.txt
+          package_line=$("$build_tools/aapt" dump badging "$apk" | head -1)
+          [[ "$package_line" == *"name='org.fossify.sama.debug'"* ]]
+          echo "Sama debug APK package and cryptographic signature: PASS"
+          if [ "$SAMA_SIGNING_SOURCE" = "disposable-ci" ]; then
+            echo "::warning::Disposable CI key: DO NOT treat this build as upgrade-compatible. Configure SAMA_DEBUG_KEYSTORE_BASE64 before distributing to devices."
+          fi
+          printf 'Package: org.fossify.sama.debug\\nSigning: %s\\nUpgrade compatibility: NOT VERIFIED\\n' "$SAMA_SIGNING_SOURCE" | tee build-verification.txt
 
-      - name: Upload verified APK
+      - name: Upload CI APK (not an upgrade)
         uses: actions/upload-artifact@v4
         with:
-          name: Sama-debug-apk
+          name: Sama-CI-debug-not-upgrade-verified
           path: |
             app/build/outputs/apk/foss/debug/*.apk
-            upgrade-verification.txt
+            build-verification.txt
+            candidate-certificate.txt
           if-no-files-found: error

@@ -48,6 +48,15 @@ class CategoryTabsView @JvmOverloads constructor(
     private var registeredToBus = false
     private var currentCategories: List<MessageCategory> = emptyList()
 
+    // Keep the visible tab views so that swiping pages does not require database reads.
+    private data class TabUi(
+        val categoryId: Long?,
+        val label: TextView,
+        val pill: GradientDrawable,
+    )
+
+    private val tabUis = mutableListOf<TabUi>()
+
     init {
         isHorizontalScrollBarEnabled = false
         clipToPadding = false
@@ -81,26 +90,26 @@ class CategoryTabsView @JvmOverloads constructor(
     fun showUnreadOnlyConversations() {
         selectedCategoryId = null
         rootView.findViewById<CategoryPagerView>(R.id.category_pager)?.showUnreadOnly()
-        refreshTabs()
+        updateTabSelection()
     }
 
     fun showAllConversations() {
         selectedCategoryId = null
         rootView.findViewById<CategoryPagerView>(R.id.category_pager)?.showAll()
-        refreshTabs()
+        updateTabSelection()
     }
 
     fun selectCategory(categoryId: Long) {
         if (currentCategories.none { it.id == categoryId }) return
         selectedCategoryId = categoryId
         rootView.findViewById<CategoryPagerView>(R.id.category_pager)?.selectCategory(categoryId)
-        refreshTabs()
+        updateTabSelection()
     }
 
     fun onPagerCategorySelected(categoryId: Long?) {
         if (selectedCategoryId == categoryId) return
         selectedCategoryId = categoryId
-        refreshTabs()
+        updateTabSelection()
     }
 
     private fun refreshTabs() {
@@ -111,16 +120,18 @@ class CategoryTabsView @JvmOverloads constructor(
             post {
                 currentCategories = categories
                 tabs.removeAllViews()
+                tabUis.clear()
 
                 tabs.addView(
                     makeTab(
+                        categoryId = null,
                         title = context.getString(R.string.category_all),
                         unreadCount = totalUnreadCount,
                         selected = selectedCategoryId == null,
                         onClick = {
                             selectedCategoryId = null
                             rootView.findViewById<CategoryPagerView>(R.id.category_pager)?.selectCategory(null)
-                            refreshTabs()
+                            updateTabSelection()
                         },
                     )
                 )
@@ -128,6 +139,7 @@ class CategoryTabsView @JvmOverloads constructor(
                 categories.forEach { category ->
                     tabs.addView(
                         makeTab(
+                            categoryId = category.id,
                             title = category.name,
                             unreadCount = unreadCounts[category.id] ?: 0,
                             selected = selectedCategoryId == category.id,
@@ -135,7 +147,7 @@ class CategoryTabsView @JvmOverloads constructor(
                                 selectedCategoryId = category.id
                                 rootView.findViewById<CategoryPagerView>(R.id.category_pager)
                                     ?.selectCategory(category.id)
-                                refreshTabs()
+                                updateTabSelection()
                             },
                             onLongClick = { showManageCategoryDialog(category) },
                         )
@@ -149,6 +161,7 @@ class CategoryTabsView @JvmOverloads constructor(
     }
 
     private fun makeTab(
+        categoryId: Long?,
         title: String,
         unreadCount: Int,
         selected: Boolean,
@@ -177,19 +190,28 @@ class CategoryTabsView @JvmOverloads constructor(
             }
         }
 
+        // One UI inspired rounded category chips, keeping existing category actions.
+        val pill = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(22).toFloat()
+            setColor(if (selected) withAlpha(textColor, 28) else withAlpha(textColor, 10))
+        }
         val row = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(dp(12), dp(10), dp(12), dp(6))
+            setPadding(dp(16), dp(8), dp(16), dp(8))
+            minimumHeight = dp(40)
+            background = pill
         }
 
         val label = TextView(context).apply {
             text = title
             gravity = Gravity.CENTER
-            textSize = 16f
+            textSize = 14f
             setTypeface(typeface, if (selected) Typeface.BOLD else Typeface.NORMAL)
-            setTextColor(if (selected) textColor else withAlpha(textColor, 140))
+            setTextColor(if (selected) textColor else withAlpha(textColor, 185))
             includeFontPadding = false
+            maxLines = 1
         }
         row.addView(label)
 
@@ -219,29 +241,29 @@ class CategoryTabsView @JvmOverloads constructor(
             )
         }
 
-        val underline = View(context).apply {
-            setBackgroundColor(if (selected) textColor else Color.TRANSPARENT)
-        }
-
         holder.addView(
             row,
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
-                0,
-                1f,
-            ),
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            )
         )
-        holder.addView(
-            underline,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(3),
-            ).apply {
-                marginStart = dp(10)
-                marginEnd = dp(10)
-            },
-        )
+        tabUis.add(TabUi(categoryId, label, pill))
         return holder
+    }
+
+    private fun updateTabSelection() {
+        val textColor = context.getProperTextColor()
+        tabUis.forEach { tab ->
+            val selected = tab.categoryId == selectedCategoryId
+            tab.label.setTypeface(
+                tab.label.typeface,
+                if (selected) Typeface.BOLD else Typeface.NORMAL
+            )
+            tab.label.setTextColor(if (selected) textColor else withAlpha(textColor, 185))
+            tab.pill.setColor(if (selected) withAlpha(textColor, 28) else withAlpha(textColor, 10))
+        }
+        scrollSelectedIntoView()
     }
 
     private fun makeAddButton(): TextView {
