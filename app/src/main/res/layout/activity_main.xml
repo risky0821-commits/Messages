@@ -40,7 +40,7 @@
             <org.fossify.messages.views.OneUiUnreadSummaryView
                 android:id="@+id/unread_summary_card"
                 android:layout_width="match_parent"
-                android:layout_height="190dp"
+                android:layout_height="158dp"
                 android:layout_below="@id/conversations_progress_bar"
                 android:layout_marginStart="@dimen/activity_margin"
                 android:layout_marginTop="8dp"
@@ -51,8 +51,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:layout_alignParentTop="true"
-                android:orientation="vertical"
-                android:translationY="194dp">
+                android:layout_marginTop="164dp"
+                android:orientation="vertical">
 
                 <org.fossify.messages.views.CategoryTabsView
                     android:id="@+id/category_tabs"
