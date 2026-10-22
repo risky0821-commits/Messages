@@ -130,7 +130,7 @@ class CategoryTabsView @JvmOverloads constructor(
                         selected = selectedCategoryId == null,
                         onClick = {
                             selectedCategoryId = null
-                            rootView.findViewById<CategoryPagerView>(R.id.category_pager)?.selectCategory(null)
+                            rootView.findViewById<CategoryPagerView>(R.id.category_pager)?.showAll()
                             updateTabSelection()
                         },
                     )
@@ -193,8 +193,8 @@ class CategoryTabsView @JvmOverloads constructor(
         // One UI inspired rounded category chips, keeping existing category actions.
         val pill = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
-            cornerRadius = dp(22).toFloat()
-            setColor(if (selected) withAlpha(textColor, 28) else withAlpha(textColor, 10))
+            cornerRadius = dp(18).toFloat()
+            setColor(if (selected) withAlpha(textColor, 30) else Color.TRANSPARENT)
         }
         val row = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -261,7 +261,7 @@ class CategoryTabsView @JvmOverloads constructor(
                 if (selected) Typeface.BOLD else Typeface.NORMAL
             )
             tab.label.setTextColor(if (selected) textColor else withAlpha(textColor, 185))
-            tab.pill.setColor(if (selected) withAlpha(textColor, 28) else withAlpha(textColor, 10))
+            tab.pill.setColor(if (selected) withAlpha(textColor, 30) else Color.TRANSPARENT)
         }
         scrollSelectedIntoView()
     }
