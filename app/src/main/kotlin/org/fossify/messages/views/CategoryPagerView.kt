@@ -130,32 +130,31 @@ class CategoryPagerView @JvmOverloads constructor(
         refreshInFlight = true
         val generation = ++refreshGeneration
         ensureBackgroundThread {
-            val categories = context.categoriesDB.getCategories()
-            val all = context.conversationsDB.getNonArchived().sortedWith(conversationComparator())
-            val hiddenFromAll = context.categoriesDB.getThreadIdsHiddenFromAll().toHashSet()
-            val mappings = context.categoriesDB.getAllConversationMappings()
-                .groupBy { it.categoryId }
-                .mapValues { (_, entries) -> entries.map { it.threadId }.toHashSet() }
-            val built = ArrayList<Page>()
-            val firstPage = if (unreadOnly) {
-                all.filter { !it.read }
-            } else {
-                all.filterNot { it.threadId in hiddenFromAll }
-            }
-            built.add(Page(null, firstPage))
-            categories.forEach { category ->
-                val ids = mappings[category.id].orEmpty()
-                built.add(Page(category.id, all.filter { it.threadId in ids }))
-            }
+            val built = runCatching {
+                val categories = context.categoriesDB.getCategories()
+                val all = context.conversationsDB.getNonArchived().sortedWith(conversationComparator())
+                val hiddenFromAll = context.categoriesDB.getThreadIdsHiddenFromAll().toHashSet()
+                val mappings = context.categoriesDB.getAllConversationMappings()
+                    .groupBy { it.categoryId }
+                    .mapValues { (_, entries) -> entries.map { it.threadId }.toHashSet() }
+                ArrayList<Page>().apply {
+                    add(Page(null, if (unreadOnly) all.filter { !it.read }
+                        else all.filterNot { it.threadId in hiddenFromAll }))
+                    categories.forEach { category ->
+                        val ids = mappings[category.id].orEmpty()
+                        add(Page(category.id, all.filter { it.threadId in ids }))
+                    }
+                }
+            }.getOrNull()
 
             post {
                 if (!isAttachedToWindow || generation != refreshGeneration) return@post
-                pages = built
-                pageAdapter.notifyDataSetChanged()
-                val target = pages.indexOfFirst { it.categoryId == requestedCategoryId }
-                    .let { if (it >= 0) it else 0 }
-                if (pager.currentItem != target) {
-                    pager.setCurrentItem(target, false)
+                if (built != null) {
+                    pages = built
+                    pageAdapter.notifyDataSetChanged()
+                    val target = pages.indexOfFirst { it.categoryId == requestedCategoryId }
+                        .let { if (it >= 0) it else 0 }
+                    if (pager.currentItem != target) pager.setCurrentItem(target, false)
                 }
                 refreshInFlight = false
                 if (refreshPending) {
