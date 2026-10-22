@@ -47,9 +47,9 @@ jobs:
             echo "Using persistent signing secret."
           else
             echo "::warning::No persistent signing key configured. Generating a DISPOSABLE debug key for CI compilation only. An APK signed by this key will NOT support future upgrades."
-            keytool -genkeypair -noprompt -keystore "$HOME/.android/debug.keystore" \\
-              -storepass android -keypass android -alias androiddebugkey \\
-              -keyalg RSA -keysize 2048 -validity 365 \\
+            keytool -genkeypair -noprompt -keystore "$HOME/.android/debug.keystore" \
+              -storepass android -keypass android -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 365 \
               -dname "CN=Sama Disposable CI Debug,O=Sama Test,C=SA"
             chmod 600 "$HOME/.android/debug.keystore"
             echo "SAMA_SIGNING_SOURCE=disposable-ci" >> "$GITHUB_ENV"
