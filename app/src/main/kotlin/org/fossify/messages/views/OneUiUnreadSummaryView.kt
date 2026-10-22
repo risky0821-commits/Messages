@@ -9,6 +9,7 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.RelativeLayout
+import androidx.core.view.updateLayoutParams
 import android.widget.TextView
 import org.fossify.commons.extensions.getProperTextColor
 import org.fossify.commons.views.MySearchMenu
@@ -160,15 +161,18 @@ class OneUiUnreadSummaryView @JvmOverloads constructor(
 
         titleView.pivotX = titleView.width.toFloat()
         titleView.pivotY = titleView.height / 2f
-        titleView.translationY = dp(70) * (1f - progress)
+        titleView.translationY = dp(45) * (1f - progress)
         titleView.scaleX = 1f + (0.20f * (1f - progress))
         titleView.scaleY = 1f + (0.20f * (1f - progress))
 
-        actions.translationY = dp(78) * (1f - progress)
+        actions.translationY = dp(53) * (1f - progress)
 
-        val expandedTop = dp(194).toFloat()
+        val expandedTop = dp(164).toFloat()
         val compactTop = dp(76).toFloat()
-        inbox.translationY = expandedTop - ((expandedTop - compactTop) * progress)
+        val topMargin = (expandedTop - ((expandedTop - compactTop) * progress)).toInt()
+        if ((inbox.layoutParams as? RelativeLayout.LayoutParams)?.topMargin != topMargin) {
+            inbox.updateLayoutParams<RelativeLayout.LayoutParams> { this.topMargin = topMargin }
+        }
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
