@@ -42,6 +42,9 @@ class CategoryPagerView @JvmOverloads constructor(
     private var registeredToBus = false
     private var unreadOnly = false
     private var requestedCategoryId: Long? = null
+    private var refreshInFlight = false
+    private var refreshPending = false
+    private var refreshGeneration = 0L
 
     init {
         pager.id = View.generateViewId()
@@ -76,6 +79,9 @@ class CategoryPagerView @JvmOverloads constructor(
     }
 
     override fun onDetachedFromWindow() {
+        refreshGeneration++
+        refreshInFlight = false
+        refreshPending = false
         if (registeredToBus) {
             EventBus.getDefault().unregister(this)
             registeredToBus = false
@@ -116,32 +122,45 @@ class CategoryPagerView @JvmOverloads constructor(
     fun getCurrentCategoryId(): Long? = requestedCategoryId
 
     private fun refreshPages() {
+        if (!isAttachedToWindow) return
+        if (refreshInFlight) {
+            refreshPending = true
+            return
+        }
+        refreshInFlight = true
+        val generation = ++refreshGeneration
+        val requestedUnreadOnly = unreadOnly
         ensureBackgroundThread {
-            val categories = context.categoriesDB.getCategories()
-            val all = context.conversationsDB.getNonArchived().sortedWith(conversationComparator())
-            val hiddenFromAll = context.categoriesDB.getThreadIdsHiddenFromAll().toHashSet()
-            val mappings = context.categoriesDB.getAllConversationMappings()
-                .groupBy { it.categoryId }
-                .mapValues { (_, entries) -> entries.map { it.threadId }.toHashSet() }
-            val built = ArrayList<Page>()
-            val firstPage = if (unreadOnly) {
-                all.filter { !it.read }
-            } else {
-                all.filterNot { it.threadId in hiddenFromAll }
-            }
-            built.add(Page(null, firstPage))
-            categories.forEach { category ->
-                val ids = mappings[category.id].orEmpty()
-                built.add(Page(category.id, all.filter { it.threadId in ids }))
-            }
+            val built = runCatching {
+                val categories = context.categoriesDB.getCategories()
+                val all = context.conversationsDB.getNonArchived().sortedWith(conversationComparator())
+                val hiddenFromAll = context.categoriesDB.getThreadIdsHiddenFromAll().toHashSet()
+                val mappings = context.categoriesDB.getAllConversationMappings()
+                    .groupBy { it.categoryId }
+                    .mapValues { (_, entries) -> entries.map { it.threadId }.toHashSet() }
+                ArrayList<Page>().apply {
+                    add(Page(null, if (requestedUnreadOnly) all.filter { !it.read }
+                        else all.filterNot { it.threadId in hiddenFromAll }))
+                    categories.forEach { category ->
+                        val ids = mappings[category.id].orEmpty()
+                        add(Page(category.id, all.filter { it.threadId in ids }))
+                    }
+                }
+            }.getOrNull()
 
             post {
-                pages = built
-                pageAdapter.notifyDataSetChanged()
-                val target = pages.indexOfFirst { it.categoryId == requestedCategoryId }
-                    .let { if (it >= 0) it else 0 }
-                if (pager.currentItem != target) {
-                    pager.setCurrentItem(target, false)
+                if (!isAttachedToWindow || generation != refreshGeneration) return@post
+                if (built != null) {
+                    pages = built
+                    pageAdapter.notifyDataSetChanged()
+                    val target = pages.indexOfFirst { it.categoryId == requestedCategoryId }
+                        .let { if (it >= 0) it else 0 }
+                    if (pager.currentItem != target) pager.setCurrentItem(target, false)
+                }
+                refreshInFlight = false
+                if (refreshPending) {
+                    refreshPending = false
+                    refreshPages()
                 }
             }
         }
