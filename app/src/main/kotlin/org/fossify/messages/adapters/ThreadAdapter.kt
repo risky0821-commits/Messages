@@ -97,6 +97,7 @@ class ThreadAdapter(
     val deleteMessages: (messages: List<Message>, toRecycleBin: Boolean, fromRecycleBin: Boolean) -> Unit
 ) : MyRecyclerViewListAdapter<ThreadItem>(activity, recyclerView, ThreadItemDiffCallback(), itemClick) {
     private var fontSize = activity.getTextSize()
+    private val contactsHelper by lazy(LazyThreadSafetyMode.NONE) { SimpleContactsHelper(activity) }
 
     @SuppressLint("MissingPermission")
     private val hasMultipleSIMCards = (activity.subscriptionManagerCompat().activeSubscriptionInfoList?.size ?: 0) > 1
@@ -432,7 +433,7 @@ class ThreadAdapter(
             }
 
             if (!activity.isFinishing && !activity.isDestroyed) {
-                val contactLetterIcon = SimpleContactsHelper(activity).getContactLetterIcon(message.senderName)
+                val contactLetterIcon = contactsHelper.getContactLetterIcon(message.senderName)
                 val placeholder = contactLetterIcon.toDrawable(activity.resources)
 
                 val options = RequestOptions()
