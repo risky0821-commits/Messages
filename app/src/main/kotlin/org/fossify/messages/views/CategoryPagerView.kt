@@ -42,6 +42,9 @@ class CategoryPagerView @JvmOverloads constructor(
     private var registeredToBus = false
     private var unreadOnly = false
     private var requestedCategoryId: Long? = null
+    private var refreshInFlight = false
+    private var refreshPending = false
+    private var refreshGeneration = 0L
 
     init {
         pager.id = View.generateViewId()
@@ -76,6 +79,9 @@ class CategoryPagerView @JvmOverloads constructor(
     }
 
     override fun onDetachedFromWindow() {
+        refreshGeneration++
+        refreshInFlight = false
+        refreshPending = false
         if (registeredToBus) {
             EventBus.getDefault().unregister(this)
             registeredToBus = false
@@ -116,6 +122,13 @@ class CategoryPagerView @JvmOverloads constructor(
     fun getCurrentCategoryId(): Long? = requestedCategoryId
 
     private fun refreshPages() {
+        if (!isAttachedToWindow) return
+        if (refreshInFlight) {
+            refreshPending = true
+            return
+        }
+        refreshInFlight = true
+        val generation = ++refreshGeneration
         ensureBackgroundThread {
             val categories = context.categoriesDB.getCategories()
             val all = context.conversationsDB.getNonArchived().sortedWith(conversationComparator())
@@ -136,12 +149,18 @@ class CategoryPagerView @JvmOverloads constructor(
             }
 
             post {
+                if (!isAttachedToWindow || generation != refreshGeneration) return@post
                 pages = built
                 pageAdapter.notifyDataSetChanged()
                 val target = pages.indexOfFirst { it.categoryId == requestedCategoryId }
                     .let { if (it >= 0) it else 0 }
                 if (pager.currentItem != target) {
                     pager.setCurrentItem(target, false)
+                }
+                refreshInFlight = false
+                if (refreshPending) {
+                    refreshPending = false
+                    refreshPages()
                 }
             }
         }
