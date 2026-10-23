@@ -18,7 +18,6 @@ import org.fossify.commons.extensions.adjustAlpha
 import org.fossify.commons.extensions.appLaunched
 import org.fossify.commons.extensions.appLockManager
 import org.fossify.commons.extensions.applyColorFilter
-import org.fossify.commons.extensions.areSystemAnimationsEnabled
 import org.fossify.commons.extensions.beGone
 import org.fossify.commons.extensions.beGoneIf
 import org.fossify.commons.extensions.beVisible
@@ -53,7 +52,6 @@ import org.fossify.commons.models.FAQItem
 import org.fossify.commons.models.Release
 import org.fossify.messages.BuildConfig
 import org.fossify.messages.R
-import org.fossify.messages.adapters.ConversationsAdapter
 import org.fossify.messages.adapters.SearchResultsAdapter
 import org.fossify.messages.databinding.ActivityMainBinding
 import org.fossify.messages.extensions.checkAndDeleteOldRecycleBinMessages
@@ -98,7 +96,7 @@ class MainActivity : SimpleActivity() {
         setupOptionsMenu()
         refreshMenuItems()
 
-        setupEdgeToEdge(padBottomImeAndSystem = listOf(binding.conversationsList))
+        setupEdgeToEdge()
 
         checkAndDeleteOldRecycleBinMessages()
         clearAllMessagesIfNeeded {
@@ -115,17 +113,7 @@ class MainActivity : SimpleActivity() {
         updateMenuColors()
         refreshMenuItems()
 
-        getOrCreateConversationsAdapter().apply {
-            if (storedTextColor != getProperTextColor()) {
-                updateTextColor(getProperTextColor())
-            }
-
-            if (storedFontSize != config.fontSize) {
-                updateFontSize()
-            }
-
-            updateDrafts()
-        }
+        binding.categoryPager.refreshVisibleAppearance()
 
         updateTextColors(binding.mainCoordinator)
         binding.searchHolder.setBackgroundColor(getProperBackgroundColor())
@@ -133,7 +121,7 @@ class MainActivity : SimpleActivity() {
         val properPrimaryColor = getProperPrimaryColor()
         binding.noConversationsPlaceholder2.setTextColor(properPrimaryColor)
         binding.noConversationsPlaceholder2.underlineText()
-        binding.conversationsFastscroller.updateColors(properPrimaryColor)
+
         binding.conversationsProgressBar.setIndicatorColor(properPrimaryColor)
         binding.conversationsProgressBar.trackColor = properPrimaryColor.adjustAlpha(LOWER_ALPHA)
         checkShortcut()
@@ -386,54 +374,12 @@ class MainActivity : SimpleActivity() {
         }
     }
 
-    private fun getOrCreateConversationsAdapter(): ConversationsAdapter {
-        var currAdapter = binding.conversationsList.adapter
-        if (currAdapter == null) {
-            hideKeyboard()
-            currAdapter = ConversationsAdapter(
-                activity = this,
-                recyclerView = binding.conversationsList,
-                onRefresh = { notifyDatasetChanged() },
-                itemClick = { handleConversationClick(it) }
-            )
-
-            binding.conversationsList.adapter = currAdapter
-            if (areSystemAnimationsEnabled) {
-                binding.conversationsList.scheduleLayoutAnimation()
-            }
-        }
-        return currAdapter as ConversationsAdapter
-    }
-
-    private fun setupConversations(
-        conversations: ArrayList<Conversation>,
-        cached: Boolean = false,
-    ) {
-        val sortedConversations = conversations
-            .sortedWith(
-                compareByDescending<Conversation> {
-                    config.pinnedConversations.contains(it.threadId.toString())
-                }.thenByDescending { it.date }
-            ).toMutableList() as ArrayList<Conversation>
-
+    private fun setupConversations(conversations: ArrayList<Conversation>, cached: Boolean = false) {
         if (cached && config.appRunCount == 1) {
-            // there are no cached conversations on the first run so we show the
-            // loading placeholder and progress until we are done loading from telephony
             showOrHideProgress(conversations.isEmpty())
         } else {
             showOrHideProgress(false)
             showOrHidePlaceholder(conversations.isEmpty())
-        }
-
-        try {
-            getOrCreateConversationsAdapter().apply {
-                updateConversations(sortedConversations) {
-                    if (!cached) {
-                        showOrHidePlaceholder(currentList.isEmpty())
-                    }
-                }
-            }
-        } catch (_: Exception) {
         }
     }
 
@@ -449,7 +395,7 @@ class MainActivity : SimpleActivity() {
     }
 
     private fun showOrHidePlaceholder(show: Boolean) {
-        binding.conversationsFastscroller.beGoneIf(show)
+
         binding.noConversationsPlaceholder.beVisibleIf(show)
         binding.noConversationsPlaceholder.text = getString(R.string.no_conversations_found)
         binding.noConversationsPlaceholder2.beVisibleIf(show)
@@ -463,20 +409,6 @@ class MainActivity : SimpleActivity() {
                 binding.searchHolder.beGone()
                 searchTextChanged("", true)
             }.start()
-    }
-
-    @SuppressLint("NotifyDataSetChanged")
-    private fun notifyDatasetChanged() {
-        getOrCreateConversationsAdapter().notifyDataSetChanged()
-    }
-
-    private fun handleConversationClick(any: Any) {
-        Intent(this, ThreadActivity::class.java).apply {
-            val conversation = any as Conversation
-            putExtra(THREAD_ID, conversation.threadId)
-            putExtra(THREAD_TITLE, conversation.title)
-            startActivity(this)
-        }
     }
 
     private fun launchNewConversation() {

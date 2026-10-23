@@ -18,6 +18,7 @@ import org.fossify.messages.adapters.ConversationsAdapter
 import org.fossify.messages.extensions.categoriesDB
 import org.fossify.messages.extensions.config
 import org.fossify.messages.extensions.conversationsDB
+import org.fossify.commons.extensions.getProperTextColor
 import org.fossify.messages.helpers.THREAD_ID
 import org.fossify.messages.helpers.THREAD_TITLE
 import org.fossify.messages.models.Conversation
@@ -96,6 +97,17 @@ class CategoryPagerView @JvmOverloads constructor(
 
     fun refreshNow() {
         refreshPages()
+    }
+
+    fun refreshVisibleAppearance() {
+        // Update the real category lists, not the legacy off-screen inbox.
+        for (index in 0 until pager.childCount) {
+            val pageRecycler = pager.getChildAt(index) as? RecyclerView ?: continue
+            for (position in 0 until pageRecycler.childCount) {
+                val holder = pageRecycler.getChildViewHolder(pageRecycler.getChildAt(position))
+                if (holder is PageHolder) holder.refreshAppearance()
+            }
+        }
     }
 
     fun selectCategory(categoryId: Long?, smooth: Boolean = true) {
@@ -216,6 +228,14 @@ class CategoryPagerView @JvmOverloads constructor(
         private val recycler: MyRecyclerView,
     ) : RecyclerView.ViewHolder(recycler) {
         private var adapter: ConversationsAdapter? = null
+
+        fun refreshAppearance() {
+            adapter?.apply {
+                updateTextColor(context.getProperTextColor())
+                updateFontSize()
+                updateDrafts()
+            }
+        }
 
         fun bind(page: Page) {
             val activity = context as? SimpleActivity ?: return
