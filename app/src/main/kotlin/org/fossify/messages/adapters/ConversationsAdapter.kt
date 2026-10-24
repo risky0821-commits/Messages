@@ -32,6 +32,7 @@ import org.fossify.messages.extensions.updateConversationArchivedStatus
 import org.fossify.messages.helpers.MUTED_NOTIFICATION_CHANNEL_PREFIX
 import org.fossify.messages.helpers.refreshConversations
 import org.fossify.messages.messaging.isShortCodeWithLetters
+import org.fossify.messages.helpers.ConversationSelectionBatch
 import org.fossify.messages.models.Conversation
 
 class ConversationsAdapter(
@@ -189,21 +190,21 @@ class ConversationsAdapter(
                 AlertDialog.Builder(activity)
                     .setTitle(R.string.move_to_category)
                     .setItems(labels) { _, which ->
-                        val conversations = getSelectedItems().toList()
+                        val threadIds = ConversationSelectionBatch.snapshot(getSelectedItems().map { it.threadId })
                         // Release the action mode immediately. The database work
                         // must operate on this snapshot, not live selection state.
                         finishActMode()
                         ensureBackgroundThread {
                             if (which == 0) {
-                                conversations.forEach { conversation ->
-                                    activity.categoriesDB.removeConversationFromAllCategories(conversation.threadId)
+                                threadIds.forEach { threadId ->
+                                    activity.categoriesDB.removeConversationFromAllCategories(threadId)
                                 }
                             } else {
                                 val category = categories[which - 1]
-                                conversations.forEach { conversation ->
+                                threadIds.forEach { threadId ->
                                     activity.categoriesDB.moveConversationToCategory(
                                         categoryId = category.id,
-                                        threadId = conversation.threadId,
+                                        threadId = threadId,
                                     )
                                 }
                             }
