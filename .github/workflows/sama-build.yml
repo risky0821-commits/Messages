@@ -65,6 +65,9 @@ jobs:
       - name: Build Foss debug APK
         run: ./gradlew assembleFossDebug -PVERSION_CODE=${{ github.run_number }} --stacktrace
 
+      - name: Run multi-selection JVM regression tests
+        run: ./gradlew :app:testFossDebugUnitTest --tests 'org.fossify.messages.helpers.ConversationSelectionBatchTest' -PVERSION_CODE=${{ github.run_number }} --stacktrace
+
       - name: Verify APK signature and package metadata
         shell: bash
         run: |
