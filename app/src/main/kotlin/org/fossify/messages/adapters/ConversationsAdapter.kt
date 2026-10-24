@@ -189,7 +189,10 @@ class ConversationsAdapter(
                 AlertDialog.Builder(activity)
                     .setTitle(R.string.move_to_category)
                     .setItems(labels) { _, which ->
-                        val conversations = getSelectedItems()
+                        val conversations = getSelectedItems().toList()
+                        // Release the action mode immediately. The database work
+                        // must operate on this snapshot, not live selection state.
+                        finishActMode()
                         ensureBackgroundThread {
                             if (which == 0) {
                                 conversations.forEach { conversation ->
@@ -456,8 +459,10 @@ class ConversationsAdapter(
 
     private fun refreshConversationsAndFinishActMode() {
         activity.runOnUiThread {
-            refreshConversations()
+            // Clear selection before rebuilding category pages. Otherwise the
+            // previous adapter can leave its action mode attached to the Activity.
             finishActMode()
+            refreshConversations()
         }
     }
 }

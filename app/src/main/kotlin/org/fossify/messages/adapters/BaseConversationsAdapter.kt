@@ -140,8 +140,9 @@ abstract class BaseConversationsAdapter(
             activity.startActionMode(actModeCallback)
         }
 
+        // The menu starts ordinary multi-select; drag-range selection is only
+        // appropriate for a real long-press gesture.
         toggleItemSelection(true, position, true)
-        itemLongClicked(position)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
