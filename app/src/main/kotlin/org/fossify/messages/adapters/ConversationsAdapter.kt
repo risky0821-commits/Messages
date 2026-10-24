@@ -456,8 +456,10 @@ class ConversationsAdapter(
 
     private fun refreshConversationsAndFinishActMode() {
         activity.runOnUiThread {
-            refreshConversations()
+            // Clear selection before rebuilding category pages. Otherwise the
+            // previous adapter can leave its action mode attached to the Activity.
             finishActMode()
+            refreshConversations()
         }
     }
 }
