@@ -189,7 +189,10 @@ class ConversationsAdapter(
                 AlertDialog.Builder(activity)
                     .setTitle(R.string.move_to_category)
                     .setItems(labels) { _, which ->
-                        val conversations = getSelectedItems()
+                        val conversations = getSelectedItems().toList()
+                        // Release the action mode immediately. The database work
+                        // must operate on this snapshot, not live selection state.
+                        finishActMode()
                         ensureBackgroundThread {
                             if (which == 0) {
                                 conversations.forEach { conversation ->
