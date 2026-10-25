@@ -27,7 +27,7 @@ gradle = "presentation/build.gradle"
 # A distinct Android application to prevent replacing either QUIK or Sama Fossify.
 patch(gradle, "applicationId 'dev.octoshrimpy.quik'", "applicationId 'dev.sama.quik'")
 patch(gradle, 'resValue("string", "app_name", "QUIK-Debug")', 'resValue("string", "app_name", "Sama QUIK Fast Tabs Test")')
-patch(gradle, 'applicationIdSuffix ".debug"', 'applicationIdSuffix ".debug.fasttabs"')
+patch(gradle, 'applicationIdSuffix ".debug"', 'applicationIdSuffix ".debug.categoryswipe"')
 
 # Stable metadata lives in Realm, separately from message contents.
 patch(model, "    @Index var pinned: Boolean = false,\n",
@@ -92,6 +92,7 @@ import io.realm.Realm
 import io.realm.RealmResults
 import io.realm.RealmChangeListener
 import dev.octoshrimpy.quik.model.Conversation
+import dev.octoshrimpy.quik.model.Message
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.schedulers.Schedulers
 ''')
@@ -101,8 +102,14 @@ patch(main, '    private lateinit var binding: MainActivityBinding',
     private var samaSource: RealmResults<Conversation>? = null
     // Keep each tab's live Realm result instead of restarting an async query on every click.
     private val samaTabResults = mutableMapOf<Long, RealmResults<Conversation>>()
+    private val samaCategoryChips = mutableMapOf<Long, TextView>()
     private var samaUnreadChip: TextView? = null
-    private val samaUnreadListener = RealmChangeListener<RealmResults<Conversation>> {
+    private var samaCountRealm: Realm? = null
+    private var samaUnreadMessages: RealmResults<Message>? = null
+    private val samaMessageListener = RealmChangeListener<RealmResults<Message>> {
+        samaUpdateUnreadCount()
+    }
+    private val samaSourceListener = RealmChangeListener<RealmResults<Conversation>> {
         samaUpdateUnreadCount()
     }
     private var samaSelectedIds: List<Long> = emptyList()
