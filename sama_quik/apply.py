@@ -219,13 +219,12 @@ patch(main, '    private lateinit var binding: MainActivityBinding',
     private fun samaVisibleConversations(source: RealmResults<Conversation>?): RealmResults<Conversation>? {
         if (source == null) return null
         if (samaSource !== source) {
-            samaTabResults[-1L]?.removeChangeListener(samaUnreadListener)
+            samaSource?.removeChangeListener(samaSourceListener)
             samaSource = source
             samaTabResults.clear()
-            // Keep a live unread query even while another tab is active.
-            val unread = source.where().equalTo("lastMessage.read", false).findAllAsync()
-            samaTabResults[-1L] = unread
-            unread.addChangeListener(samaUnreadListener)
+            source.addChangeListener(samaSourceListener)
+            samaTabResults[-1L] = source.where()
+                .equalTo("lastMessage.read", false).findAllAsync()
             samaUpdateUnreadCount()
         }
         if (samaSelectedCategoryId == 0L) return source
