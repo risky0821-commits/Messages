@@ -90,6 +90,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import io.realm.Realm
 import io.realm.RealmResults
+import io.realm.RealmChangeListener
 import dev.octoshrimpy.quik.model.Conversation
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.schedulers.Schedulers
@@ -100,6 +101,10 @@ patch(main, '    private lateinit var binding: MainActivityBinding',
     private var samaSource: RealmResults<Conversation>? = null
     // Keep each tab's live Realm result instead of restarting an async query on every click.
     private val samaTabResults = mutableMapOf<Long, RealmResults<Conversation>>()
+    private var samaUnreadChip: TextView? = null
+    private val samaUnreadListener = RealmChangeListener<RealmResults<Conversation>> {
+        samaUpdateUnreadCount()
+    }
     private var samaSelectedIds: List<Long> = emptyList()
     private val samaMoveMenuId = 0x53414d41
 
@@ -165,11 +170,19 @@ patch(main, '    private lateinit var binding: MainActivityBinding',
         }
     }
 
+    private fun samaUpdateUnreadCount() {
+        val count = samaTabResults[-1L]?.takeIf { it.isLoaded }?.size
+        samaUnreadChip?.text = if (count == null) "غير مقروءة" else "غير مقروءة ($count)"
+    }
+
     private fun samaRefreshChips() {
         binding.samaCategoryRow.apply {
             removeAllViews()
             addView(samaChip("الكل", samaSelectedCategoryId == 0L) { samaSelectCategory(0L) })
-            addView(samaChip("غير مقروءة", samaSelectedCategoryId == -1L) { samaSelectCategory(-1L) })
+            samaUnreadChip = samaChip("غير مقروءة", samaSelectedCategoryId == -1L) {
+                samaSelectCategory(-1L)
+            }.also { addView(it) }
+            samaUpdateUnreadCount()
             samaCategories().forEach { (id, name) ->
                 addView(samaChip(name, samaSelectedCategoryId == id) { samaSelectCategory(id) })
             }
@@ -180,8 +193,14 @@ patch(main, '    private lateinit var binding: MainActivityBinding',
     private fun samaVisibleConversations(source: RealmResults<Conversation>?): RealmResults<Conversation>? {
         if (source == null) return null
         if (samaSource !== source) {
+            samaTabResults[-1L]?.removeChangeListener(samaUnreadListener)
             samaSource = source
             samaTabResults.clear()
+            // Keep a live unread query even while another tab is active.
+            val unread = source.where().equalTo("lastMessage.read", false).findAllAsync()
+            samaTabResults[-1L] = unread
+            unread.addChangeListener(samaUnreadListener)
+            samaUpdateUnreadCount()
         }
         if (samaSelectedCategoryId == 0L) return source
         return samaTabResults.getOrPut(samaSelectedCategoryId) {
