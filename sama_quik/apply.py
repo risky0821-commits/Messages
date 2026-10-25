@@ -148,7 +148,7 @@ patch(main, '    private lateinit var binding: MainActivityBinding',
         return TextView(this).apply {
             text = title
             textSize = 14f
-            setTextColor(Color.WHITE)
+            setTextColor(resolveThemeColor(android.R.attr.textColorPrimary))
             setTypeface(typeface, if (active) Typeface.BOLD else Typeface.NORMAL)
             gravity = Gravity.CENTER
             setPadding(samaDp(18), samaDp(9), samaDp(18), samaDp(9))
@@ -213,7 +213,7 @@ patch(main, '    private lateinit var binding: MainActivityBinding',
                     Realm.getDefaultInstance().use { realm ->
                         realm.executeTransaction {
                             realm.where(Conversation::class.java)
-                                .in("id", selected.toLongArray()).findAll()
+                                .in("id", selected.toTypedArray()).findAll()
                                 .forEach { it.samaCategoryId = destination }
                         }
                     }
