@@ -27,7 +27,7 @@ gradle = "presentation/build.gradle"
 # A distinct Android application to prevent replacing either QUIK or Sama Fossify.
 patch(gradle, "applicationId 'dev.octoshrimpy.quik'", "applicationId 'dev.sama.quik'")
 patch(gradle, 'resValue("string", "app_name", "QUIK-Debug")', 'resValue("string", "app_name", "Sama QUIK Fast Tabs Test")')
-patch(gradle, 'applicationIdSuffix ".debug"', 'applicationIdSuffix ".debug.fasttabs"')
+patch(gradle, 'applicationIdSuffix ".debug"', 'applicationIdSuffix ".debug.categoryswipe"')
 
 # Stable metadata lives in Realm, separately from message contents.
 patch(model, "    @Index var pinned: Boolean = false,\n",
@@ -85,6 +85,9 @@ import android.widget.EditText
 import android.widget.TextView
 import android.widget.LinearLayout
 import android.view.ViewGroup
+import android.view.MotionEvent
+import android.graphics.Rect
+import kotlin.math.abs
 import android.view.inputmethod.InputMethodManager
 import org.json.JSONArray
 import org.json.JSONObject
@@ -92,6 +95,7 @@ import io.realm.Realm
 import io.realm.RealmResults
 import io.realm.RealmChangeListener
 import dev.octoshrimpy.quik.model.Conversation
+import dev.octoshrimpy.quik.model.Message
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.schedulers.Schedulers
 ''')
@@ -101,8 +105,18 @@ patch(main, '    private lateinit var binding: MainActivityBinding',
     private var samaSource: RealmResults<Conversation>? = null
     // Keep each tab's live Realm result instead of restarting an async query on every click.
     private val samaTabResults = mutableMapOf<Long, RealmResults<Conversation>>()
+    private val samaCategoryChips = mutableMapOf<Long, TextView>()
     private var samaUnreadChip: TextView? = null
-    private val samaUnreadListener = RealmChangeListener<RealmResults<Conversation>> {
+    private var samaCountRealm: Realm? = null
+    private var samaUnreadMessages: RealmResults<Message>? = null
+    private var samaSwipeStartX = 0f
+    private var samaSwipeStartY = 0f
+    private var samaSwipeCandidate = false
+    private var samaCanSwipeTabs = false
+    private val samaMessageListener = RealmChangeListener<RealmResults<Message>> {
+        samaUpdateUnreadCount()
+    }
+    private val samaSourceListener = RealmChangeListener<RealmResults<Conversation>> {
         samaUpdateUnreadCount()
     }
     private var samaSelectedIds: List<Long> = emptyList()
@@ -171,35 +185,53 @@ patch(main, '    private lateinit var binding: MainActivityBinding',
     }
 
     private fun samaUpdateUnreadCount() {
-        val count = samaTabResults[-1L]?.takeIf { it.isLoaded }?.size
-        samaUnreadChip?.text = if (count == null) "غير مقروءة" else "غير مقروءة ($count)"
+        val messages = samaUnreadMessages
+        val conversations = samaCurrentInbox
+        if (messages?.isLoaded != true || conversations?.isLoaded != true) return
+        val categoryByThread = conversations.associate { it.id to it.samaCategoryId }
+        val counts = mutableMapOf<Long, Int>()
+        var total = 0
+        messages.forEach { message ->
+            val category = categoryByThread[message.threadId] ?: return@forEach
+            total++
+            counts[category] = (counts[category] ?: 0) + 1
+        }
+        samaCategoryChips[0L]?.text = "الكل ($total)"
+        samaUnreadChip?.text = "غير مقروءة ($total)"
+        samaCategories().forEach { (id, name) ->
+            samaCategoryChips[id]?.text = "$name (${counts[id] ?: 0})"
+        }
     }
 
     private fun samaRefreshChips() {
+        samaCategoryChips.clear()
         binding.samaCategoryRow.apply {
             removeAllViews()
-            addView(samaChip("الكل", samaSelectedCategoryId == 0L) { samaSelectCategory(0L) })
+            addView(samaChip("الكل", samaSelectedCategoryId == 0L) {
+                samaSelectCategory(0L)
+            }.also { samaCategoryChips[0L] = it })
             samaUnreadChip = samaChip("غير مقروءة", samaSelectedCategoryId == -1L) {
                 samaSelectCategory(-1L)
             }.also { addView(it) }
-            samaUpdateUnreadCount()
             samaCategories().forEach { (id, name) ->
-                addView(samaChip(name, samaSelectedCategoryId == id) { samaSelectCategory(id) })
+                addView(samaChip(name, samaSelectedCategoryId == id) {
+                    samaSelectCategory(id)
+                }.also { samaCategoryChips[id] = it })
             }
             addView(samaChip("+", false) { samaNewCategory() })
         }
+        samaUpdateUnreadCount()
     }
 
     private fun samaVisibleConversations(source: RealmResults<Conversation>?): RealmResults<Conversation>? {
         if (source == null) return null
         if (samaSource !== source) {
-            samaTabResults[-1L]?.removeChangeListener(samaUnreadListener)
+            samaSource?.removeChangeListener(samaSourceListener)
             samaSource = source
             samaTabResults.clear()
-            // Keep a live unread query even while another tab is active.
-            val unread = source.where().equalTo("lastMessage.read", false).findAllAsync()
-            samaTabResults[-1L] = unread
-            unread.addChangeListener(samaUnreadListener)
+            source.addChangeListener(samaSourceListener)
+            samaTabResults[-1L] = source.where()
+                .equalTo("lastMessage.read", false).findAllAsync()
             samaUpdateUnreadCount()
         }
         if (samaSelectedCategoryId == 0L) return source
@@ -226,6 +258,29 @@ patch(main, '    private lateinit var binding: MainActivityBinding',
     }
 
     private var samaCurrentInbox: RealmResults<Conversation>? = null
+
+    private fun samaEnsureCounterQuery() {
+        if (samaUnreadMessages != null) return
+        val realm = Realm.getDefaultInstance()
+        samaCountRealm = realm
+        val unread = realm.where(Message::class.java)
+            .equalTo("read", false)
+            .beginGroup()
+            .beginGroup()
+            .equalTo("type", Message.TYPE_SMS)
+            .equalTo("boxId", android.provider.Telephony.Sms.MESSAGE_TYPE_INBOX)
+            .endGroup()
+            .or()
+            .beginGroup()
+            .equalTo("type", Message.TYPE_MMS)
+            .equalTo("boxId", android.provider.Telephony.Mms.MESSAGE_BOX_INBOX)
+            .endGroup()
+            .endGroup()
+            .findAllAsync()
+        samaUnreadMessages = unread
+        unread.addChangeListener(samaMessageListener)
+        samaUpdateUnreadCount()
+    }
 
     private fun samaMoveSelected() {
         val selected = samaSelectedIds.distinct()
@@ -271,7 +326,9 @@ patch(main, '            findItem(R.id.rename)?.isVisible = selectedConversation
       '''            findItem(R.id.rename)?.isVisible = selectedConversations == 1
             findItem(samaMoveMenuId)?.isVisible = state.page is Inbox && selectedConversations != 0''')
 patch(main, '                conversationsAdapter.updateData(state.page.data)\n                itemTouchHelper.attachToRecyclerView(binding.recyclerView)',
-      '''                samaCurrentInbox = state.page.data
+      '''                samaCanSwipeTabs = state.page.selected == 0
+                samaCurrentInbox = state.page.data
+                samaEnsureCounterQuery()
                 conversationsAdapter.updateData(samaVisibleConversations(state.page.data))
                 itemTouchHelper.attachToRecyclerView(binding.recyclerView)''')
 patch(main, '    override fun onCreateOptionsMenu(menu: Menu?) =\n        menu?.let {\n            menuInflater.inflate(R.menu.main, it)',
@@ -350,5 +407,68 @@ patch(rowAdapter, '''        binding.pinned.isVisible = conversation.pinned
         } else {
             binding.unread.text = ""
         }''')
+
+
+# Long horizontal gesture navigates tabs. Short row swipes keep native QUIK actions.
+patch(main, '    override fun onNewIntent(intent: Intent?) =',
+      '''    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (::binding.isInitialized) {
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    samaSwipeStartX = event.rawX
+                    samaSwipeStartY = event.rawY
+                    val bounds = Rect()
+                    val onInbox = binding.recyclerView.getGlobalVisibleRect(bounds) &&
+                        bounds.contains(event.rawX.toInt(), event.rawY.toInt())
+                    samaSwipeCandidate = samaCanSwipeTabs && onInbox &&
+                        !binding.drawerLayout.isDrawerOpen(GravityCompat.START) &&
+                        binding.recyclerView.adapter === conversationsAdapter
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (samaSwipeCandidate) {
+                        val dx = event.rawX - samaSwipeStartX
+                        val dy = event.rawY - samaSwipeStartY
+                        val required = maxOf(samaDp(140).toFloat(),
+                            binding.recyclerView.width * 0.35f)
+                        if (abs(dx) >= required && abs(dx) > abs(dy) * 2f) {
+                            val tabs = listOf(0L, -1L) + samaCategories().map { it.first }
+                            val position = tabs.indexOf(samaSelectedCategoryId)
+                            if (position >= 0) {
+                                val next = (position + if (dx < 0) 1 else -1)
+                                    .coerceIn(0, tabs.lastIndex)
+                                val cancel = MotionEvent.obtain(event)
+                                cancel.action = MotionEvent.ACTION_CANCEL
+                                super.dispatchTouchEvent(cancel)
+                                cancel.recycle()
+                                if (next != position) samaSelectCategory(tabs[next])
+                                samaSwipeCandidate = false
+                                return true
+                            }
+                        }
+                    }
+                    samaSwipeCandidate = false
+                }
+                MotionEvent.ACTION_CANCEL -> samaSwipeCandidate = false
+            }
+        }
+        return super.dispatchTouchEvent(event)
+    }
+
+    override fun onNewIntent(intent: Intent?) =''')
+
+patch(main, '        conversationsAdapter.hasScheduledConversation = state.scheduledConversationIds',
+      '''        samaCanSwipeTabs = state.page is Inbox && state.page.selected == 0
+        conversationsAdapter.hasScheduledConversation = state.scheduledConversationIds''')
+patch(main, '                samaCanSwipeTabs = state.page.selected == 0\n                samaCurrentInbox',
+      '                samaCurrentInbox')
+patch(main, '''    override fun onDestroy() =
+        super.onDestroy().also { disposables.dispose() }''',
+      '''    override fun onDestroy() {
+        samaSource?.removeChangeListener(samaSourceListener)
+        samaUnreadMessages?.removeChangeListener(samaMessageListener)
+        samaCountRealm?.close()
+        super.onDestroy()
+        disposables.dispose()
+    }''')
 
 print("Sama QUIK base patch applied successfully. Original QUIK SMS receive engine remains unchanged.")
