@@ -27,7 +27,7 @@ gradle = "presentation/build.gradle"
 # A distinct Android application to prevent replacing either QUIK or Sama Fossify.
 patch(gradle, "applicationId 'dev.octoshrimpy.quik'", "applicationId 'dev.sama.quik'")
 patch(gradle, 'resValue("string", "app_name", "QUIK-Debug")', 'resValue("string", "app_name", "Sama QUIK Fast Tabs Test")')
-patch(gradle, 'applicationIdSuffix ".debug"', 'applicationIdSuffix ".debug.categoryswipe"')
+patch(gradle, 'applicationIdSuffix ".debug"', 'applicationIdSuffix ".debug.smooth"')
 
 # Stable metadata lives in Realm, separately from message contents.
 patch(model, "    @Index var pinned: Boolean = false,\n",
@@ -57,7 +57,7 @@ patch(layout, '''        <androidx.recyclerview.widget.RecyclerView
       '''        <HorizontalScrollView
             android:id="@+id/samaCategoryTabs"
             android:layout_width="match_parent"
-            android:layout_height="54dp"
+            android:layout_height="48dp"
             android:fillViewport="false"
             android:scrollbars="none"
             app:layout_constraintTop_toBottomOf="@id/toolbar">
@@ -68,8 +68,8 @@ patch(layout, '''        <androidx.recyclerview.widget.RecyclerView
                 android:layout_height="match_parent"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp" />
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp" />
         </HorizontalScrollView>
 
         <androidx.recyclerview.widget.RecyclerView
@@ -112,6 +112,7 @@ patch(main, '    private lateinit var binding: MainActivityBinding',
     private var samaSwipeStartX = 0f
     private var samaSwipeStartY = 0f
     private var samaSwipeCandidate = false
+    private var samaSwipeCaptured = false
     private var samaCanSwipeTabs = false
     private val samaMessageListener = RealmChangeListener<RealmResults<Message>> {
         samaUpdateUnreadCount()
@@ -168,18 +169,18 @@ patch(main, '    private lateinit var binding: MainActivityBinding',
         val tint = if (active) Color.rgb(75, 78, 88) else Color.TRANSPARENT
         return TextView(this).apply {
             text = title
-            textSize = 14f
+            textSize = 12.5f
             setTextColor(resolveThemeColor(android.R.attr.textColorPrimary))
             setTypeface(typeface, if (active) Typeface.BOLD else Typeface.NORMAL)
             gravity = Gravity.CENTER
-            setPadding(samaDp(18), samaDp(9), samaDp(18), samaDp(9))
+            setPadding(samaDp(12), samaDp(6), samaDp(12), samaDp(6))
             background = GradientDrawable().apply {
                 cornerRadius = samaDp(20).toFloat()
                 setColor(tint)
             }
             layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, samaDp(42)
-            ).apply { marginEnd = samaDp(5) }
+                ViewGroup.LayoutParams.WRAP_CONTENT, samaDp(36)
+            ).apply { marginEnd = samaDp(4) }
             setOnClickListener { onClick() }
         }
     }
@@ -223,6 +224,24 @@ patch(main, '    private lateinit var binding: MainActivityBinding',
         samaUpdateUnreadCount()
     }
 
+    private fun samaHighlightSelectedChip() {
+        val chips = samaCategoryChips + listOfNotNull(samaUnreadChip?.let { -1L to it })
+        chips.forEach { (id, chip) ->
+            val active = id == samaSelectedCategoryId
+            chip.setTypeface(chip.typeface, if (active) Typeface.BOLD else Typeface.NORMAL)
+            chip.background = GradientDrawable().apply {
+                cornerRadius = samaDp(18).toFloat()
+                setColor(if (active) Color.rgb(75, 78, 88) else Color.TRANSPARENT)
+            }
+        }
+        chips[samaSelectedCategoryId]?.let { selected ->
+            binding.samaCategoryTabs.post {
+                binding.samaCategoryTabs.smoothScrollTo(
+                    (selected.left + selected.width / 2 - binding.samaCategoryTabs.width / 2).coerceAtLeast(0), 0)
+            }
+        }
+    }
+
     private fun samaVisibleConversations(source: RealmResults<Conversation>?): RealmResults<Conversation>? {
         if (source == null) return null
         if (samaSource !== source) {
@@ -251,7 +270,7 @@ patch(main, '    private lateinit var binding: MainActivityBinding',
         if (id == samaSelectedCategoryId) return
         samaSelectedCategoryId = id
         conversationsAdapter.clearSelection()
-        samaRefreshChips()
+        samaHighlightSelectedChip()
         if (binding.recyclerView.adapter === conversationsAdapter) {
             conversationsAdapter.updateData(samaVisibleConversations(samaCurrentInbox))
         }
@@ -412,43 +431,64 @@ patch(rowAdapter, '''        binding.pinned.isVisible = conversation.pinned
 # Long horizontal gesture navigates tabs. Short row swipes keep native QUIK actions.
 patch(main, '    override fun onNewIntent(intent: Intent?) =',
       '''    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        if (::binding.isInitialized) {
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    samaSwipeStartX = event.rawX
-                    samaSwipeStartY = event.rawY
-                    val bounds = Rect()
-                    val onInbox = binding.recyclerView.getGlobalVisibleRect(bounds) &&
-                        bounds.contains(event.rawX.toInt(), event.rawY.toInt())
-                    samaSwipeCandidate = samaCanSwipeTabs && onInbox &&
-                        !binding.drawerLayout.isDrawerOpen(GravityCompat.START) &&
-                        binding.recyclerView.adapter === conversationsAdapter
-                }
-                MotionEvent.ACTION_UP -> {
-                    if (samaSwipeCandidate) {
-                        val dx = event.rawX - samaSwipeStartX
-                        val dy = event.rawY - samaSwipeStartY
-                        val required = maxOf(samaDp(140).toFloat(),
-                            binding.recyclerView.width * 0.35f)
-                        if (abs(dx) >= required && abs(dx) > abs(dy) * 2f) {
-                            val tabs = listOf(0L, -1L) + samaCategories().map { it.first }
-                            val position = tabs.indexOf(samaSelectedCategoryId)
-                            if (position >= 0) {
-                                val next = (position + if (dx < 0) 1 else -1)
-                                    .coerceIn(0, tabs.lastIndex)
-                                val cancel = MotionEvent.obtain(event)
-                                cancel.action = MotionEvent.ACTION_CANCEL
-                                super.dispatchTouchEvent(cancel)
-                                cancel.recycle()
-                                if (next != position) samaSelectCategory(tabs[next])
-                                samaSwipeCandidate = false
-                                return true
-                            }
-                        }
+        if (!::binding.isInitialized) return super.dispatchTouchEvent(event)
+        val list = binding.recyclerView
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                list.animate().cancel()
+                list.translationX = 0f
+                samaSwipeCaptured = false
+                samaSwipeStartX = event.rawX
+                samaSwipeStartY = event.rawY
+                val bounds = Rect()
+                samaSwipeCandidate = samaCanSwipeTabs &&
+                    list.getGlobalVisibleRect(bounds) &&
+                    bounds.contains(event.rawX.toInt(), event.rawY.toInt()) &&
+                    !binding.drawerLayout.isDrawerOpen(GravityCompat.START) &&
+                    list.adapter === conversationsAdapter
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (samaSwipeCandidate) {
+                    val dx = event.rawX - samaSwipeStartX
+                    val dy = event.rawY - samaSwipeStartY
+                    if (!samaSwipeCaptured && abs(dy) > samaDp(25) && abs(dy) > abs(dx)) {
+                        samaSwipeCandidate = false
+                    } else if (!samaSwipeCaptured && abs(dx) > samaDp(76) &&
+                        abs(dx) > abs(dy) * 1.4f) {
+                        // Cancel the underlying row's swipe before it can commit on ACTION_UP.
+                        val cancel = MotionEvent.obtain(event)
+                        cancel.action = MotionEvent.ACTION_CANCEL
+                        super.dispatchTouchEvent(cancel)
+                        cancel.recycle()
+                        samaSwipeCaptured = true
                     }
-                    samaSwipeCandidate = false
+                    if (samaSwipeCaptured) {
+                        list.translationX = dx.coerceIn(-samaDp(100).toFloat(), samaDp(100).toFloat()) * 0.28f
+                        return true
+                    }
                 }
-                MotionEvent.ACTION_CANCEL -> samaSwipeCandidate = false
+            }
+            MotionEvent.ACTION_UP -> {
+                if (samaSwipeCaptured) {
+                    val dx = event.rawX - samaSwipeStartX
+                    val dy = event.rawY - samaSwipeStartY
+                    val tabs = listOf(0L, -1L) + samaCategories().map { it.first }
+                    val at = tabs.indexOf(samaSelectedCategoryId)
+                    if (at >= 0 && abs(dx) >= samaDp(90) && abs(dx) > abs(dy) * 1.3f) {
+                        val target = (at + if (dx < 0f) 1 else -1).coerceIn(0, tabs.lastIndex)
+                        if (target != at) samaSelectCategory(tabs[target])
+                    }
+                    list.animate().translationX(0f).setDuration(170L).start()
+                    samaSwipeCaptured = false
+                    samaSwipeCandidate = false
+                    return true
+                }
+                samaSwipeCandidate = false
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                if (samaSwipeCaptured) list.animate().translationX(0f).setDuration(170L).start()
+                samaSwipeCaptured = false
+                samaSwipeCandidate = false
             }
         }
         return super.dispatchTouchEvent(event)
