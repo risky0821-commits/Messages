@@ -41,10 +41,18 @@
                     app:showDelay="250"
                     tools:visibility="visible" />
 
+                <org.fossify.messages.views.CategoryTabsView
+                    android:id="@+id/category_tabs"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_below="@id/conversations_progress_bar"
+                    android:fillViewport="false" />
+
                 <org.fossify.commons.views.MyTextView
                     android:id="@+id/no_conversations_placeholder"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_below="@id/category_tabs"
                     android:layout_centerHorizontal="true"
                     android:layout_marginTop="@dimen/bigger_margin"
                     android:alpha="0.8"
@@ -72,7 +80,8 @@
                 <com.qtalk.recyclerviewfastscroller.RecyclerViewFastScroller
                     android:id="@+id/conversations_fastscroller"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
+                    android:layout_height="match_parent"
+                    android:layout_below="@id/category_tabs">
 
                     <org.fossify.commons.views.MyRecyclerView
                         android:id="@+id/conversations_list"

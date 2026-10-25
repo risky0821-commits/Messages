@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager.IMPORTANCE_HIGH
+import android.app.NotificationManager.IMPORTANCE_LOW
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -46,12 +47,24 @@ class NotificationHelper(private val context: Context) {
         sender: String?,
         alertOnlyOnce: Boolean = false
     ) {
+        val isMuted = context.config.isConversationMuted(threadId)
         val hasCustomNotifications =
             context.config.customNotifications.contains(threadId.toString())
-        val notificationChannelId =
-            if (hasCustomNotifications) threadId.toString() else NOTIFICATION_CHANNEL_ID
-        if (!hasCustomNotifications) {
-            createChannel(notificationChannelId, context.getString(R.string.channel_received_sms))
+        val notificationChannelId = when {
+            isMuted -> MUTED_NOTIFICATION_CHANNEL_PREFIX + threadId
+            hasCustomNotifications -> threadId.toString()
+            else -> NOTIFICATION_CHANNEL_ID
+        }
+
+        when {
+            isMuted -> createMutedChannel(
+                notificationChannelId,
+                sender ?: context.getString(R.string.channel_received_sms)
+            )
+            !hasCustomNotifications -> createChannel(
+                notificationChannelId,
+                context.getString(R.string.channel_received_sms)
+            )
         }
 
         val notificationId = threadId.hashCode()
@@ -145,12 +158,16 @@ class NotificationHelper(private val context: Context) {
             color = context.getProperPrimaryColor()
             setSmallIcon(R.drawable.ic_messenger)
             setContentIntent(contentPendingIntent)
-            priority = NotificationCompat.PRIORITY_MAX
-            setDefaults(Notification.DEFAULT_LIGHTS)
+            priority = if (isMuted) NotificationCompat.PRIORITY_LOW else NotificationCompat.PRIORITY_MAX
+            setDefaults(if (isMuted) 0 else Notification.DEFAULT_LIGHTS)
             setCategory(Notification.CATEGORY_MESSAGE)
             setAutoCancel(true)
-            setOnlyAlertOnce(alertOnlyOnce)
-            setSound(soundUri, AudioManager.STREAM_NOTIFICATION)
+            setOnlyAlertOnce(alertOnlyOnce || isMuted)
+            if (isMuted) {
+                setSilent(true)
+            } else {
+                setSound(soundUri, AudioManager.STREAM_NOTIFICATION)
+            }
         }
 
         if (replyAction != null && context.config.lockScreenVisibilitySetting == LOCK_SCREEN_SENDER_MESSAGE) {
@@ -236,12 +253,21 @@ class NotificationHelper(private val context: Context) {
             .setLegacyStreamType(AudioManager.STREAM_NOTIFICATION)
             .build()
 
-        val importance = IMPORTANCE_HIGH
-        NotificationChannel(id, name, importance).apply {
+        NotificationChannel(id, name, IMPORTANCE_HIGH).apply {
             setBypassDnd(false)
             enableLights(true)
             setSound(soundUri, audioAttributes)
             enableVibration(true)
+            notificationManager.createNotificationChannel(this)
+        }
+    }
+
+    private fun createMutedChannel(id: String, name: String) {
+        NotificationChannel(id, name, IMPORTANCE_LOW).apply {
+            setBypassDnd(false)
+            enableLights(false)
+            setSound(null, null)
+            enableVibration(false)
             notificationManager.createNotificationChannel(this)
         }
     }

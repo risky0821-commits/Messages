@@ -3,6 +3,7 @@ package org.fossify.messages.adapters
 import android.content.Intent
 import android.text.TextUtils
 import android.view.Menu
+import androidx.appcompat.app.AlertDialog
 import org.fossify.commons.dialogs.ConfirmationDialog
 import org.fossify.commons.dialogs.FeatureLockedDialog
 import org.fossify.commons.extensions.addBlockedNumber
@@ -17,6 +18,7 @@ import org.fossify.commons.views.MyRecyclerView
 import org.fossify.messages.R
 import org.fossify.messages.activities.SimpleActivity
 import org.fossify.messages.dialogs.RenameConversationDialog
+import org.fossify.messages.extensions.categoriesDB
 import org.fossify.messages.extensions.config
 import org.fossify.messages.extensions.deleteConversation
 import org.fossify.messages.extensions.dialNumber
@@ -59,6 +61,7 @@ class ConversationsAdapter(
             findItem(R.id.cab_mark_as_read).isVisible = selectedItems.any { !it.read }
             findItem(R.id.cab_mark_as_unread).isVisible = selectedItems.any { it.read }
             findItem(R.id.cab_archive).isVisible = archiveAvailable
+            findItem(R.id.cab_move_to_category).isVisible = true
             checkPinBtnVisibility(this)
         }
     }
@@ -76,6 +79,7 @@ class ConversationsAdapter(
             R.id.cab_copy_number -> copyNumberToClipboard()
             R.id.cab_delete -> askConfirmDelete()
             R.id.cab_archive -> askConfirmArchive()
+            R.id.cab_move_to_category -> showMoveToCategoryDialog()
             R.id.cab_rename_conversation -> renameConversation(selectedItems.first())
             R.id.cab_conversation_details ->
                 activity.launchConversationDetails(selectedItems.first().threadId)
@@ -85,6 +89,42 @@ class ConversationsAdapter(
             R.id.cab_pin_conversation -> pinConversation(true)
             R.id.cab_unpin_conversation -> pinConversation(false)
             R.id.cab_select_all -> selectAll()
+        }
+    }
+
+    private fun showMoveToCategoryDialog() {
+        ensureBackgroundThread {
+            val categories = activity.categoriesDB.getCategories()
+            activity.runOnUiThread {
+                val labels = ArrayList<String>().apply {
+                    add(activity.getString(R.string.no_category))
+                    addAll(categories.map { it.name })
+                }.toTypedArray()
+
+                AlertDialog.Builder(activity)
+                    .setTitle(R.string.move_to_category)
+                    .setItems(labels) { _, which ->
+                        val conversations = getSelectedItems()
+                        ensureBackgroundThread {
+                            if (which == 0) {
+                                conversations.forEach { conversation ->
+                                    activity.categoriesDB.removeConversationFromAllCategories(conversation.threadId)
+                                }
+                            } else {
+                                val category = categories[which - 1]
+                                conversations.forEach { conversation ->
+                                    activity.categoriesDB.moveConversationToCategory(
+                                        categoryId = category.id,
+                                        threadId = conversation.threadId,
+                                    )
+                                }
+                            }
+                            refreshConversationsAndFinishActMode()
+                        }
+                    }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show()
+            }
         }
     }
 
@@ -209,6 +249,7 @@ class ConversationsAdapter(
         val conversationsToRemove =
             currentList.filter { selectedKeys.contains(it.hashCode()) } as ArrayList<Conversation>
         conversationsToRemove.forEach {
+            activity.categoriesDB.removeConversationFromAllCategories(it.threadId)
             activity.deleteConversation(it.threadId)
             activity.notificationManager.cancel(it.threadId.hashCode())
         }

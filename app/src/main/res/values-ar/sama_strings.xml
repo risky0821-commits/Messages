@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sama_app_name">Sama</string>
+    <string name="category_all">الكل</string>
+    <string name="create_category">إنشاء فئة</string>
+    <string name="category_name_hint">اسم الفئة</string>
+    <string name="move_to_category">نقل إلى فئة</string>
+    <string name="remove_from_category">إزالة من الفئة</string>
+    <string name="manage_categories">إدارة الفئات</string>
+    <string name="rename_category">تغيير اسم الفئة</string>
+    <string name="delete_category">حذف الفئة</string>
+    <string name="delete_category_confirmation">حذف "%1$s"؟ الرسائل ستبقى في تبويب الكل.</string>
+    <string name="no_category">بدون فئة</string>
+    <string name="mute_conversation">كتم إشعارات هذه المحادثة</string>
+</resources>

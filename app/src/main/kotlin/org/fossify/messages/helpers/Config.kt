@@ -5,6 +5,7 @@ import org.fossify.commons.helpers.BaseConfig
 import org.fossify.messages.extensions.getDefaultKeyboardHeight
 import org.fossify.messages.models.Conversation
 
+@Suppress("TooManyFunctions")
 class Config(context: Context) : BaseConfig(context) {
     companion object {
         fun newInstance(context: Context) = Config(context)
@@ -140,6 +141,23 @@ class Config(context: Context) : BaseConfig(context) {
 
     fun removeCustomNotificationsByThreadId(threadId: Long) {
         customNotifications = customNotifications.minus(threadId.toString())
+    }
+
+    var mutedConversations: Set<String>
+        get() = prefs.getStringSet(MUTED_CONVERSATIONS, HashSet<String>())!!
+        set(mutedConversations) = prefs.edit()
+            .putStringSet(MUTED_CONVERSATIONS, mutedConversations).apply()
+
+    fun isConversationMuted(threadId: Long): Boolean {
+        return mutedConversations.contains(threadId.toString())
+    }
+
+    fun setConversationMuted(threadId: Long, muted: Boolean) {
+        mutedConversations = if (muted) {
+            mutedConversations.plus(threadId.toString())
+        } else {
+            mutedConversations.minus(threadId.toString())
+        }
     }
 
     var lastBlockedKeywordExportPath: String
