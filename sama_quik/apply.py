@@ -26,7 +26,8 @@ gradle = "presentation/build.gradle"
 
 # A distinct Android application to prevent replacing either QUIK or Sama Fossify.
 patch(gradle, "applicationId 'dev.octoshrimpy.quik'", "applicationId 'dev.sama.quik'")
-patch(gradle, 'resValue("string", "app_name", "QUIK-Debug")', 'resValue("string", "app_name", "Sama QUIK")')
+patch(gradle, 'resValue("string", "app_name", "QUIK-Debug")', 'resValue("string", "app_name", "Sama QUIK Fast Tabs Test")')
+patch(gradle, 'applicationIdSuffix ".debug"', 'applicationIdSuffix ".debug.fasttabs"')
 
 # Stable metadata lives in Realm, separately from message contents.
 patch(model, "    @Index var pinned: Boolean = false,\n",
@@ -97,7 +98,8 @@ patch(main, '    private lateinit var binding: MainActivityBinding',
       '''    private val samaPrefs by lazy { getSharedPreferences("sama_quik_categories", Context.MODE_PRIVATE) }
     private var samaSelectedCategoryId = 0L
     private var samaSource: RealmResults<Conversation>? = null
-    private var samaFiltered: RealmResults<Conversation>? = null
+    // Keep each tab's live Realm result instead of restarting an async query on every click.
+    private val samaTabResults = mutableMapOf<Long, RealmResults<Conversation>>()
     private var samaSelectedIds: List<Long> = emptyList()
     private val samaMoveMenuId = 0x53414d41
 
@@ -167,6 +169,7 @@ patch(main, '    private lateinit var binding: MainActivityBinding',
         binding.samaCategoryRow.apply {
             removeAllViews()
             addView(samaChip("الكل", samaSelectedCategoryId == 0L) { samaSelectCategory(0L) })
+            addView(samaChip("غير مقروءة", samaSelectedCategoryId == -1L) { samaSelectCategory(-1L) })
             samaCategories().forEach { (id, name) ->
                 addView(samaChip(name, samaSelectedCategoryId == id) { samaSelectCategory(id) })
             }
@@ -175,21 +178,27 @@ patch(main, '    private lateinit var binding: MainActivityBinding',
     }
 
     private fun samaVisibleConversations(source: RealmResults<Conversation>?): RealmResults<Conversation>? {
-        if (samaSelectedCategoryId == 0L) return source
-        if (samaSource !== source || samaFiltered == null) {
+        if (source == null) return null
+        if (samaSource !== source) {
             samaSource = source
-            samaFiltered = source?.where()
-                ?.equalTo("samaCategoryId", samaSelectedCategoryId)
-                ?.findAllAsync()
+            samaTabResults.clear()
         }
-        return samaFiltered
+        if (samaSelectedCategoryId == 0L) return source
+        return samaTabResults.getOrPut(samaSelectedCategoryId) {
+            // Live Realm results update automatically for incoming messages and read changes.
+            val query = source.where()
+            if (samaSelectedCategoryId == -1L) {
+                query.equalTo("lastMessage.read", false)
+            } else {
+                query.equalTo("samaCategoryId", samaSelectedCategoryId)
+            }
+            query.findAllAsync()
+        }
     }
 
     private fun samaSelectCategory(id: Long) {
         if (id == samaSelectedCategoryId) return
         samaSelectedCategoryId = id
-        samaSource = null
-        samaFiltered = null
         conversationsAdapter.clearSelection()
         samaRefreshChips()
         if (binding.recyclerView.adapter === conversationsAdapter) {
