@@ -408,4 +408,67 @@ patch(rowAdapter, '''        binding.pinned.isVisible = conversation.pinned
             binding.unread.text = ""
         }''')
 
+
+# Long horizontal gesture navigates tabs. Short row swipes keep native QUIK actions.
+patch(main, '    override fun onNewIntent(intent: Intent?) =',
+      '''    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (::binding.isInitialized) {
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    samaSwipeStartX = event.rawX
+                    samaSwipeStartY = event.rawY
+                    val bounds = Rect()
+                    val onInbox = binding.recyclerView.getGlobalVisibleRect(bounds) &&
+                        bounds.contains(event.rawX.toInt(), event.rawY.toInt())
+                    samaSwipeCandidate = samaCanSwipeTabs && onInbox &&
+                        !binding.drawerLayout.isDrawerOpen(GravityCompat.START) &&
+                        binding.recyclerView.adapter === conversationsAdapter
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (samaSwipeCandidate) {
+                        val dx = event.rawX - samaSwipeStartX
+                        val dy = event.rawY - samaSwipeStartY
+                        val required = maxOf(samaDp(140).toFloat(),
+                            binding.recyclerView.width * 0.35f)
+                        if (abs(dx) >= required && abs(dx) > abs(dy) * 2f) {
+                            val tabs = listOf(0L, -1L) + samaCategories().map { it.first }
+                            val position = tabs.indexOf(samaSelectedCategoryId)
+                            if (position >= 0) {
+                                val next = (position + if (dx < 0) 1 else -1)
+                                    .coerceIn(0, tabs.lastIndex)
+                                val cancel = MotionEvent.obtain(event)
+                                cancel.action = MotionEvent.ACTION_CANCEL
+                                super.dispatchTouchEvent(cancel)
+                                cancel.recycle()
+                                if (next != position) samaSelectCategory(tabs[next])
+                                samaSwipeCandidate = false
+                                return true
+                            }
+                        }
+                    }
+                    samaSwipeCandidate = false
+                }
+                MotionEvent.ACTION_CANCEL -> samaSwipeCandidate = false
+            }
+        }
+        return super.dispatchTouchEvent(event)
+    }
+
+    override fun onNewIntent(intent: Intent?) =''')
+
+patch(main, '        conversationsAdapter.hasScheduledConversation = state.scheduledConversationIds',
+      '''        samaCanSwipeTabs = state.page is Inbox && state.page.selected == 0
+        conversationsAdapter.hasScheduledConversation = state.scheduledConversationIds''')
+patch(main, '                samaCanSwipeTabs = state.page.selected == 0\n                samaCurrentInbox',
+      '                samaCurrentInbox')
+patch(main, '''    override fun onDestroy() =
+        super.onDestroy().also { disposables.dispose() }''',
+      '''    override fun onDestroy() {
+        samaSource?.removeChangeListener(samaSourceListener)
+        samaUnreadMessages?.removeChangeListener(samaMessageListener)
+        samaCountRealm?.close()
+        super.onDestroy()
+        disposables.dispose()
+    }''')
+
 print("Sama QUIK base patch applied successfully. Original QUIK SMS receive engine remains unchanged.")
