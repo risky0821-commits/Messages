@@ -5,6 +5,9 @@ on:
     branches:
       - experiment/sama-quik
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
