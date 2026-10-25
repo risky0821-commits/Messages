@@ -213,7 +213,7 @@ patch(main, '    private lateinit var binding: MainActivityBinding',
                     Realm.getDefaultInstance().use { realm ->
                         realm.executeTransaction {
                             realm.where(Conversation::class.java)
-                                .in("id", selected.toTypedArray()).findAll()
+                                .`in`("id", selected.toTypedArray()).findAll()
                                 .forEach { it.samaCategoryId = destination }
                         }
                     }
