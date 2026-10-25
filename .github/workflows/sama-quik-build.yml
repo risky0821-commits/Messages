@@ -19,6 +19,8 @@ jobs:
     steps:
       - name: Checkout Sama experiment files
         uses: actions/checkout@v4
+        with:
+          ref: experiment/sama-quik
 
       - name: JDK 17
         uses: actions/setup-java@v4
