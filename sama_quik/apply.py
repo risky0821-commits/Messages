@@ -290,4 +290,65 @@ patch(main, '    override fun onOptionsItemSelected(item: MenuItem) =\n        o
         return true
     }''')
 
+
+# Replace the unread dot with a count in its existing accent colour.
+rowLayout = prefix + "res/layout/conversation_list_item.xml"
+rowAdapter = prefix + "java/com/moez/QKSMS/feature/conversations/ConversationsAdapter.kt"
+patch(rowLayout, '''    <ImageView
+        android:id="@+id/unread"
+        android:layout_width="20dp"
+        android:layout_height="16sp"
+        android:paddingStart="8dp"
+        android:paddingTop="2dp"
+        android:paddingBottom="2dp"
+        android:src="@drawable/circle"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/snippet"
+        tools:tint="@color/tools_theme"
+        tools:visibility="visible" />''',
+      '''    <TextView
+        android:id="@+id/unread"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:minWidth="20dp"
+        android:gravity="center"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/snippet"
+        tools:text="3"
+        tools:visibility="visible" />''')
+patch(rowAdapter, 'import dev.octoshrimpy.quik.model.Conversation\n',
+      '''import dev.octoshrimpy.quik.model.Conversation
+import dev.octoshrimpy.quik.model.Message
+import io.realm.Realm
+''')
+patch(rowAdapter, '''        binding.pinned.isVisible = conversation.pinned
+        binding.unread.setTint(theme)''',
+      '''        binding.pinned.isVisible = conversation.pinned
+        binding.unread.setTextColor(theme)
+        if (conversation.unread) {
+            // The badge counts unread SMS/MMS within this conversation, not the number of threads.
+            val unreadCount = Realm.getDefaultInstance().use { realm ->
+                realm.where(Message::class.java)
+                    .equalTo("threadId", conversation.id)
+                    .equalTo("read", false)
+                    .beginGroup()
+                    .equalTo("type", Message.TYPE_SMS)
+                    .equalTo("boxId", android.provider.Telephony.Sms.MESSAGE_TYPE_INBOX)
+                    .or()
+                    .beginGroup()
+                    .equalTo("type", Message.TYPE_MMS)
+                    .equalTo("boxId", android.provider.Telephony.Mms.MESSAGE_BOX_INBOX)
+                    .endGroup()
+                    .endGroup()
+                    .count()
+            }
+            binding.unread.text = if (unreadCount > 99L) "99+" else unreadCount.coerceAtLeast(1L).toString()
+        } else {
+            binding.unread.text = ""
+        }''')
+
 print("Sama QUIK base patch applied successfully. Original QUIK SMS receive engine remains unchanged.")
