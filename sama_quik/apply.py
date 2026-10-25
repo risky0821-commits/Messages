@@ -1,0 +1,265 @@
+#!/usr/bin/env python3
+"""Apply the minimal Sama QUIK category experiment to a pinned GPLv3 QUIK checkout.
+
+This script only touches the extracted QUIK source used for the experiment.
+It does not change the Fossify-derived Sama Android application.
+"""
+from pathlib import Path
+import sys
+
+root = Path(sys.argv[1]).resolve()
+def patch(filename, old, new, count=1):
+    p = root / filename
+    text = p.read_text()
+    found = text.count(old)
+    if found != count:
+        raise SystemExit(f"Cannot patch {filename}: expected {count} matches, got {found}: {old[:65]!r}")
+    p.write_text(text.replace(old, new, count))
+
+prefix = "presentation/src/main/"
+main = prefix + "java/com/moez/QKSMS/feature/main/MainActivity.kt"
+model = "domain/src/main/java/com/moez/QKSMS/model/Conversation.kt"
+migration = "data/src/main/java/com/moez/QKSMS/migration/QkRealmMigration.kt"
+sync = "data/src/main/java/com/moez/QKSMS/repository/SyncRepositoryImpl.kt"
+layout = prefix + "res/layout/main_activity.xml"
+gradle = "presentation/build.gradle"
+
+# A distinct Android application to prevent replacing either QUIK or Sama Fossify.
+patch(gradle, "applicationId 'dev.octoshrimpy.quik'", "applicationId 'dev.sama.quik'")
+patch(gradle, 'resValue("string", "app_name", "QUIK-Debug")', 'resValue("string", "app_name", "Sama QUIK")')
+
+# Stable metadata lives in Realm, separately from message contents.
+patch(model, "    @Index var pinned: Boolean = false,\n",
+      "    @Index var pinned: Boolean = false,\n    @Index var samaCategoryId: Long = 0,\n")
+patch(migration, "const val SCHEMA_VERSION: Long = 15", "const val SCHEMA_VERSION: Long = 16")
+patch(migration, '        check(version >= SCHEMA_VERSION) {',
+      '''        if (version == 15L) {
+            realm.schema.get("Conversation")
+                ?.addField("samaCategoryId", Long::class.java, FieldAttribute.REQUIRED, FieldAttribute.INDEXED)
+            version++
+        }
+
+        check(version >= SCHEMA_VERSION) {''')
+patch(sync, '                        .isNotNull("blockingClient")',
+      '''                        .isNotNull("blockingClient")
+                        .or()
+                        .notEqualTo("samaCategoryId", 0L)''')
+patch(sync, '                                    pinned = persistedConversation.pinned',
+      '''                                    pinned = persistedConversation.pinned
+                                    samaCategoryId = persistedConversation.samaCategoryId''')
+
+# Modern top-of-list category chips. Keep original sender list and search unmodified.
+patch(layout, '            app:layout_constraintBottom_toTopOf="@id/bottom"\n            app:layout_constraintTop_toBottomOf="@id/toolbar"',
+      '            app:layout_constraintBottom_toTopOf="@id/bottom"\n            app:layout_constraintTop_toBottomOf="@id/samaCategoryTabs"', count=2)
+patch(layout, '''        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerView"''',
+      '''        <HorizontalScrollView
+            android:id="@+id/samaCategoryTabs"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:fillViewport="false"
+            android:scrollbars="none"
+            app:layout_constraintTop_toBottomOf="@id/toolbar">
+
+            <LinearLayout
+                android:id="@+id/samaCategoryRow"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp" />
+        </HorizontalScrollView>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerView"''')
+# MainActivity uses a single live RealmResults adapter; constrain its query by category.
+patch(main, 'import android.content.Intent\n',
+      '''import android.content.Intent
+import android.content.Context
+import android.graphics.Typeface
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
+import android.widget.EditText
+import android.widget.TextView
+import android.widget.LinearLayout
+import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
+import org.json.JSONArray
+import org.json.JSONObject
+import io.realm.Realm
+import io.realm.RealmResults
+import dev.octoshrimpy.quik.model.Conversation
+import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.schedulers.Schedulers
+''')
+patch(main, '    private lateinit var binding: MainActivityBinding',
+      '''    private val samaPrefs by lazy { getSharedPreferences("sama_quik_categories", Context.MODE_PRIVATE) }
+    private var samaSelectedCategoryId = 0L
+    private var samaSource: RealmResults<Conversation>? = null
+    private var samaFiltered: RealmResults<Conversation>? = null
+    private var samaSelectedIds: List<Long> = emptyList()
+    private val samaMoveMenuId = 0x53414d41
+
+    private fun samaCategories(): List<Pair<Long, String>> {
+        val json = runCatching { JSONArray(samaPrefs.getString("categories", "[]")) }
+            .getOrDefault(JSONArray())
+        return (0 until json.length()).mapNotNull { index ->
+            runCatching {
+                val item = json.getJSONObject(index)
+                item.getLong("id") to item.getString("name")
+            }.getOrNull()
+        }
+    }
+
+    private fun samaSaveCategories(categories: List<Pair<Long, String>>) {
+        val json = JSONArray()
+        categories.forEach { (id, name) ->
+            json.put(JSONObject().put("id", id).put("name", name))
+        }
+        samaPrefs.edit().putString("categories", json.toString()).apply()
+    }
+
+    private fun samaNewCategory() {
+        val entry = EditText(this).apply {
+            hint = "اسم الفئة"
+            setSingleLine(true)
+            setPadding(samaDp(20), samaDp(12), samaDp(20), samaDp(12))
+        }
+        AlertDialog.Builder(this)
+            .setTitle("فئة جديدة")
+            .setView(entry)
+            .setNegativeButton("إلغاء", null)
+            .setPositiveButton("إنشاء") { _, _ ->
+                val title = entry.text.toString().trim()
+                if (title.isNotEmpty()) {
+                    val nextId = (samaCategories().maxOfOrNull { it.first } ?: 0L) + 1L
+                    samaSaveCategories(samaCategories() + (nextId to title))
+                    samaSelectCategory(nextId)
+                }
+            }
+            .show()
+    }
+
+    private fun samaDp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    private fun samaChip(title: String, active: Boolean, onClick: () -> Unit): TextView {
+        val tint = if (active) Color.rgb(75, 78, 88) else Color.TRANSPARENT
+        return TextView(this).apply {
+            text = title
+            textSize = 14f
+            setTextColor(resolveThemeColor(android.R.attr.textColorPrimary))
+            setTypeface(typeface, if (active) Typeface.BOLD else Typeface.NORMAL)
+            gravity = Gravity.CENTER
+            setPadding(samaDp(18), samaDp(9), samaDp(18), samaDp(9))
+            background = GradientDrawable().apply {
+                cornerRadius = samaDp(20).toFloat()
+                setColor(tint)
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, samaDp(42)
+            ).apply { marginEnd = samaDp(5) }
+            setOnClickListener { onClick() }
+        }
+    }
+
+    private fun samaRefreshChips() {
+        binding.samaCategoryRow.apply {
+            removeAllViews()
+            addView(samaChip("الكل", samaSelectedCategoryId == 0L) { samaSelectCategory(0L) })
+            samaCategories().forEach { (id, name) ->
+                addView(samaChip(name, samaSelectedCategoryId == id) { samaSelectCategory(id) })
+            }
+            addView(samaChip("+", false) { samaNewCategory() })
+        }
+    }
+
+    private fun samaVisibleConversations(source: RealmResults<Conversation>?): RealmResults<Conversation>? {
+        if (samaSelectedCategoryId == 0L) return source
+        if (samaSource !== source || samaFiltered == null) {
+            samaSource = source
+            samaFiltered = source?.where()
+                ?.equalTo("samaCategoryId", samaSelectedCategoryId)
+                ?.findAllAsync()
+        }
+        return samaFiltered
+    }
+
+    private fun samaSelectCategory(id: Long) {
+        if (id == samaSelectedCategoryId) return
+        samaSelectedCategoryId = id
+        samaSource = null
+        samaFiltered = null
+        conversationsAdapter.clearSelection()
+        samaRefreshChips()
+        if (binding.recyclerView.adapter === conversationsAdapter) {
+            conversationsAdapter.updateData(samaVisibleConversations(samaCurrentInbox))
+        }
+    }
+
+    private var samaCurrentInbox: RealmResults<Conversation>? = null
+
+    private fun samaMoveSelected() {
+        val selected = samaSelectedIds.distinct()
+        if (selected.isEmpty()) return
+        val categories = samaCategories()
+        val labels = arrayOf("بدون فئة", *categories.map { it.second }.toTypedArray())
+        AlertDialog.Builder(this)
+            .setTitle("نقل المحادثات إلى")
+            .setItems(labels) { _, index ->
+                val destination = if (index == 0) 0L else categories[index - 1].first
+                conversationsAdapter.clearSelection()
+                io.reactivex.Single.fromCallable {
+                    Realm.getDefaultInstance().use { realm ->
+                        realm.executeTransaction {
+                            realm.where(Conversation::class.java)
+                                .`in`("id", selected.toTypedArray()).findAll()
+                                .forEach { it.samaCategoryId = destination }
+                        }
+                    }
+                    true
+                }.subscribeOn(Schedulers.io())
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe(
+                        { samaRefreshChips() },
+                        { error ->
+                            android.widget.Toast.makeText(this, "تعذر نقل المحادثات: " + error.message, android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    ).also { disposables.add(it) }
+            }
+            .setNegativeButton("إلغاء", null)
+            .show()
+    }
+
+    private lateinit var binding: MainActivityBinding''')
+patch(main, '        setContentView(binding.root)\n        viewModel.bindView(this)',
+      '''        setContentView(binding.root)
+        samaRefreshChips()
+        disposables.add(conversationsAdapter.selectionChanges.subscribe {
+            samaSelectedIds = it.toList()
+        })
+        viewModel.bindView(this)''')
+patch(main, '            findItem(R.id.rename)?.isVisible = selectedConversations == 1',
+      '''            findItem(R.id.rename)?.isVisible = selectedConversations == 1
+            findItem(samaMoveMenuId)?.isVisible = state.page is Inbox && selectedConversations != 0''')
+patch(main, '                conversationsAdapter.updateData(state.page.data)\n                itemTouchHelper.attachToRecyclerView(binding.recyclerView)',
+      '''                samaCurrentInbox = state.page.data
+                conversationsAdapter.updateData(samaVisibleConversations(state.page.data))
+                itemTouchHelper.attachToRecyclerView(binding.recyclerView)''')
+patch(main, '    override fun onCreateOptionsMenu(menu: Menu?) =\n        menu?.let {\n            menuInflater.inflate(R.menu.main, it)',
+      '''    override fun onCreateOptionsMenu(menu: Menu?) =
+        menu?.let {
+            menuInflater.inflate(R.menu.main, it)
+            it.add(Menu.NONE, samaMoveMenuId, Menu.NONE, "نقل إلى فئة")
+                .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)''')
+patch(main, '    override fun onOptionsItemSelected(item: MenuItem) =\n        optionsItemIntent.onNext(item.itemId).let { true }',
+      '''    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        if (item.itemId == samaMoveMenuId) {
+            samaMoveSelected()
+            return true
+        }
+        optionsItemIntent.onNext(item.itemId)
+        return true
+    }''')
+
+print("Sama QUIK base patch applied successfully. Original QUIK SMS receive engine remains unchanged.")
