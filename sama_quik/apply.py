@@ -85,6 +85,9 @@ import android.widget.EditText
 import android.widget.TextView
 import android.widget.LinearLayout
 import android.view.ViewGroup
+import android.view.MotionEvent
+import android.graphics.Rect
+import kotlin.math.abs
 import android.view.inputmethod.InputMethodManager
 import org.json.JSONArray
 import org.json.JSONObject
@@ -106,6 +109,10 @@ patch(main, '    private lateinit var binding: MainActivityBinding',
     private var samaUnreadChip: TextView? = null
     private var samaCountRealm: Realm? = null
     private var samaUnreadMessages: RealmResults<Message>? = null
+    private var samaSwipeStartX = 0f
+    private var samaSwipeStartY = 0f
+    private var samaSwipeCandidate = false
+    private var samaCanSwipeTabs = false
     private val samaMessageListener = RealmChangeListener<RealmResults<Message>> {
         samaUpdateUnreadCount()
     }
