@@ -1,0 +1,56 @@
+name: Sama QUIK independent prototype
+
+on:
+  push:
+    branches:
+      - experiment/sama-quik
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout Sama experiment files
+        uses: actions/checkout@v4
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Obtain pinned GPLv3 QUIK base
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir quik-source
+          curl --fail --location --retry 3 \
+            'https://codeload.github.com/quik-sms/quik/tar.gz/02542049207bab8e467a90cc0e50d3febe2b6a8d' \
+            -o /tmp/quik-source.tar.gz
+          tar xzf /tmp/quik-source.tar.gz --strip-components=1 -C quik-source
+
+      - name: Apply isolated Sama category modifications
+        run: python3 sama_quik/apply.py quik-source
+
+      - name: Compile independent Sama QUIK APK
+        working-directory: quik-source
+        run: |
+          chmod +x gradlew
+          ./gradlew :presentation:assembleDebug --no-daemon --stacktrace
+
+      - name: Upload prototype (disposable key, fresh install only)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sama-QUIK-prototype-not-upgrade-compatible
+          path: quik-source/presentation/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
