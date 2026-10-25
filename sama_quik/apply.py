@@ -252,6 +252,29 @@ patch(main, '    private lateinit var binding: MainActivityBinding',
 
     private var samaCurrentInbox: RealmResults<Conversation>? = null
 
+    private fun samaEnsureCounterQuery() {
+        if (samaUnreadMessages != null) return
+        val realm = Realm.getDefaultInstance()
+        samaCountRealm = realm
+        val unread = realm.where(Message::class.java)
+            .equalTo("read", false)
+            .beginGroup()
+            .beginGroup()
+            .equalTo("type", Message.TYPE_SMS)
+            .equalTo("boxId", android.provider.Telephony.Sms.MESSAGE_TYPE_INBOX)
+            .endGroup()
+            .or()
+            .beginGroup()
+            .equalTo("type", Message.TYPE_MMS)
+            .equalTo("boxId", android.provider.Telephony.Mms.MESSAGE_BOX_INBOX)
+            .endGroup()
+            .endGroup()
+            .findAllAsync()
+        samaUnreadMessages = unread
+        unread.addChangeListener(samaMessageListener)
+        samaUpdateUnreadCount()
+    }
+
     private fun samaMoveSelected() {
         val selected = samaSelectedIds.distinct()
         if (selected.isEmpty()) return
@@ -296,7 +319,9 @@ patch(main, '            findItem(R.id.rename)?.isVisible = selectedConversation
       '''            findItem(R.id.rename)?.isVisible = selectedConversations == 1
             findItem(samaMoveMenuId)?.isVisible = state.page is Inbox && selectedConversations != 0''')
 patch(main, '                conversationsAdapter.updateData(state.page.data)\n                itemTouchHelper.attachToRecyclerView(binding.recyclerView)',
-      '''                samaCurrentInbox = state.page.data
+      '''                samaCanSwipeTabs = state.page.selected == 0
+                samaCurrentInbox = state.page.data
+                samaEnsureCounterQuery()
                 conversationsAdapter.updateData(samaVisibleConversations(state.page.data))
                 itemTouchHelper.attachToRecyclerView(binding.recyclerView)''')
 patch(main, '    override fun onCreateOptionsMenu(menu: Menu?) =\n        menu?.let {\n            menuInflater.inflate(R.menu.main, it)',
