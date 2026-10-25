@@ -178,23 +178,42 @@ patch(main, '    private lateinit var binding: MainActivityBinding',
     }
 
     private fun samaUpdateUnreadCount() {
-        val count = samaTabResults[-1L]?.takeIf { it.isLoaded }?.size
-        samaUnreadChip?.text = if (count == null) "غير مقروءة" else "غير مقروءة ($count)"
+        val messages = samaUnreadMessages
+        val conversations = samaCurrentInbox
+        if (messages?.isLoaded != true || conversations?.isLoaded != true) return
+        val categoryByThread = conversations.associate { it.id to it.samaCategoryId }
+        val counts = mutableMapOf<Long, Int>()
+        var total = 0
+        messages.forEach { message ->
+            val category = categoryByThread[message.threadId] ?: return@forEach
+            total++
+            counts[category] = (counts[category] ?: 0) + 1
+        }
+        samaCategoryChips[0L]?.text = "الكل ($total)"
+        samaUnreadChip?.text = "غير مقروءة ($total)"
+        samaCategories().forEach { (id, name) ->
+            samaCategoryChips[id]?.text = "$name (${counts[id] ?: 0})"
+        }
     }
 
     private fun samaRefreshChips() {
+        samaCategoryChips.clear()
         binding.samaCategoryRow.apply {
             removeAllViews()
-            addView(samaChip("الكل", samaSelectedCategoryId == 0L) { samaSelectCategory(0L) })
+            addView(samaChip("الكل", samaSelectedCategoryId == 0L) {
+                samaSelectCategory(0L)
+            }.also { samaCategoryChips[0L] = it })
             samaUnreadChip = samaChip("غير مقروءة", samaSelectedCategoryId == -1L) {
                 samaSelectCategory(-1L)
             }.also { addView(it) }
-            samaUpdateUnreadCount()
             samaCategories().forEach { (id, name) ->
-                addView(samaChip(name, samaSelectedCategoryId == id) { samaSelectCategory(id) })
+                addView(samaChip(name, samaSelectedCategoryId == id) {
+                    samaSelectCategory(id)
+                }.also { samaCategoryChips[id] = it })
             }
             addView(samaChip("+", false) { samaNewCategory() })
         }
+        samaUpdateUnreadCount()
     }
 
     private fun samaVisibleConversations(source: RealmResults<Conversation>?): RealmResults<Conversation>? {
