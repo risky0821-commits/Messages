@@ -26,8 +26,8 @@ gradle = "presentation/build.gradle"
 
 # A distinct Android application to prevent replacing either QUIK or Sama Fossify.
 patch(gradle, "applicationId 'dev.octoshrimpy.quik'", "applicationId 'dev.sama.quik'")
-patch(gradle, 'resValue("string", "app_name", "QUIK-Debug")', 'resValue("string", "app_name", "Sama QUIK Fast Tabs Test")')
-patch(gradle, 'applicationIdSuffix ".debug"', 'applicationIdSuffix ".debug.smooth"')
+patch(gradle, 'resValue("string", "app_name", "QUIK-Debug")', 'resValue("string", "app_name", "Sama QUIK Direct Swipe Test")')
+patch(gradle, 'applicationIdSuffix ".debug"', 'applicationIdSuffix ".debug.directswipe"')
 
 # Stable metadata lives in Realm, separately from message contents.
 patch(model, "    @Index var pinned: Boolean = false,\n",
@@ -111,6 +111,7 @@ patch(main, '    private lateinit var binding: MainActivityBinding',
     private var samaUnreadMessages: RealmResults<Message>? = null
     private var samaSwipeStartX = 0f
     private var samaSwipeStartY = 0f
+    private var samaSwipeStartTime = 0L
     private var samaSwipeCandidate = false
     private var samaSwipeCaptured = false
     private var samaCanSwipeTabs = false
@@ -438,6 +439,7 @@ patch(main, '    override fun onNewIntent(intent: Intent?) =',
                 list.animate().cancel()
                 list.translationX = 0f
                 samaSwipeCaptured = false
+                samaSwipeStartTime = event.eventTime
                 samaSwipeStartX = event.rawX
                 samaSwipeStartY = event.rawY
                 val bounds = Rect()
@@ -453,8 +455,8 @@ patch(main, '    override fun onNewIntent(intent: Intent?) =',
                     val dy = event.rawY - samaSwipeStartY
                     if (!samaSwipeCaptured && abs(dy) > samaDp(25) && abs(dy) > abs(dx)) {
                         samaSwipeCandidate = false
-                    } else if (!samaSwipeCaptured && abs(dx) > samaDp(76) &&
-                        abs(dx) > abs(dy) * 1.4f) {
+                    } else if (!samaSwipeCaptured && abs(dx) > samaDp(30) &&
+                        abs(dx) > abs(dy) * 1.25f) {
                         // Cancel the underlying row's swipe before it can commit on ACTION_UP.
                         val cancel = MotionEvent.obtain(event)
                         cancel.action = MotionEvent.ACTION_CANCEL
@@ -463,7 +465,7 @@ patch(main, '    override fun onNewIntent(intent: Intent?) =',
                         samaSwipeCaptured = true
                     }
                     if (samaSwipeCaptured) {
-                        list.translationX = dx.coerceIn(-samaDp(100).toFloat(), samaDp(100).toFloat()) * 0.28f
+                        list.translationX = dx.coerceIn(-samaDp(125).toFloat(), samaDp(125).toFloat()) * 0.45f
                         return true
                     }
                 }
@@ -474,11 +476,15 @@ patch(main, '    override fun onNewIntent(intent: Intent?) =',
                     val dy = event.rawY - samaSwipeStartY
                     val tabs = listOf(0L, -1L) + samaCategories().map { it.first }
                     val at = tabs.indexOf(samaSelectedCategoryId)
-                    if (at >= 0 && abs(dx) >= samaDp(90) && abs(dx) > abs(dy) * 1.3f) {
+                    val duration = (event.eventTime - samaSwipeStartTime).coerceAtLeast(1L)
+                    val velocity = abs(dx) * 1000f / duration
+                    if (at >= 0 && (abs(dx) >= samaDp(64) ||
+                        (abs(dx) >= samaDp(38) && velocity >= samaDp(500))) &&
+                        abs(dx) > abs(dy) * 1.2f) {
                         val target = (at + if (dx < 0f) 1 else -1).coerceIn(0, tabs.lastIndex)
                         if (target != at) samaSelectCategory(tabs[target])
                     }
-                    list.animate().translationX(0f).setDuration(170L).start()
+                    list.animate().translationX(0f).setDuration(140L).start()
                     samaSwipeCaptured = false
                     samaSwipeCandidate = false
                     return true
@@ -486,7 +492,7 @@ patch(main, '    override fun onNewIntent(intent: Intent?) =',
                 samaSwipeCandidate = false
             }
             MotionEvent.ACTION_CANCEL -> {
-                if (samaSwipeCaptured) list.animate().translationX(0f).setDuration(170L).start()
+                if (samaSwipeCaptured) list.animate().translationX(0f).setDuration(140L).start()
                 samaSwipeCaptured = false
                 samaSwipeCandidate = false
             }
