@@ -26,8 +26,8 @@ gradle = "presentation/build.gradle"
 
 # A distinct Android application to prevent replacing either QUIK or Sama Fossify.
 patch(gradle, "applicationId 'dev.octoshrimpy.quik'", "applicationId 'dev.sama.quik'")
-patch(gradle, 'resValue("string", "app_name", "QUIK-Debug")', 'resValue("string", "app_name", "Sama QUIK Direct Swipe Test")')
-patch(gradle, 'applicationIdSuffix ".debug"', 'applicationIdSuffix ".debug.directswipe"')
+patch(gradle, 'resValue("string", "app_name", "QUIK-Debug")', 'resValue("string", "app_name", "Sama QUIK Backup Test")')
+patch(gradle, 'applicationIdSuffix ".debug"', 'applicationIdSuffix ".debug.backuptest"')
 
 # Stable metadata lives in Realm, separately from message contents.
 patch(model, "    @Index var pinned: Boolean = false,\n",
