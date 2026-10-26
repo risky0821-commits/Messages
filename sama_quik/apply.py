@@ -26,8 +26,8 @@ gradle = "presentation/build.gradle"
 
 # A distinct Android application to prevent replacing either QUIK or Sama Fossify.
 patch(gradle, "applicationId 'dev.octoshrimpy.quik'", "applicationId 'dev.sama.quik'")
-patch(gradle, 'resValue("string", "app_name", "QUIK-Debug")', 'resValue("string", "app_name", "Sama QUIK Direct Swipe Test")')
-patch(gradle, 'applicationIdSuffix ".debug"', 'applicationIdSuffix ".debug.directswipe"')
+patch(gradle, 'resValue("string", "app_name", "QUIK-Debug")', 'resValue("string", "app_name", "Sama QUIK Backup Test")')
+patch(gradle, 'applicationIdSuffix ".debug"', 'applicationIdSuffix ".debug.backuptest"')
 
 # Stable metadata lives in Realm, separately from message contents.
 patch(model, "    @Index var pinned: Boolean = false,\n",
@@ -516,5 +516,182 @@ patch(main, '''    override fun onDestroy() =
         super.onDestroy()
         disposables.dispose()
     }''')
+
+
+# Export/import category names and contact assignments using Android's system file picker.
+# This does NOT export SMS content. Never delete messages as part of a restore.
+patch(main, 'import android.content.Intent\n',
+      '''import android.content.Intent
+import android.net.Uri
+import java.io.BufferedReader
+import java.io.InputStreamReader
+''')
+patch(main, '    private val samaMoveMenuId = 0x53414d41',
+      '''    private val samaMoveMenuId = 0x53414d41
+    private val samaBackupMenuId = 0x53414d42
+    private val samaRestoreMenuId = 0x53414d43
+    private val samaExportRequest = 0x5341
+    private val samaImportRequest = 0x5342
+
+    private fun samaExportCategories() {
+        startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/json"
+            putExtra(Intent.EXTRA_TITLE, "sama-quik-categories.json")
+        }, samaExportRequest)
+    }
+
+    private fun samaImportCategories() {
+        startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/json"
+        }, samaImportRequest)
+    }
+
+    private fun samaConversationKey(conversation: Conversation): String {
+        // Use participants, not provider thread IDs, so imports can survive device changes.
+        return conversation.recipients.map { recipient ->
+            recipient.address.trim().lowercase(java.util.Locale.ROOT)
+                .replace(Regex("[\\\\s\\\\-()]"), "")
+        }.filter { it.isNotBlank() }.sorted().joinToString("|")
+    }
+
+    private fun samaBackupJson(): String {
+        val categories = samaCategories()
+        val document = JSONObject().put("format", "sama-quik-categories")
+            .put("version", 1)
+        val categoryArray = JSONArray()
+        categories.forEach { (id, name) ->
+            categoryArray.put(JSONObject().put("id", id).put("name", name))
+        }
+        document.put("categories", categoryArray)
+        val assignments = JSONArray()
+        Realm.getDefaultInstance().use { realm ->
+            realm.where(Conversation::class.java).notEqualTo("samaCategoryId", 0L)
+                .findAll().forEach { conversation ->
+                    val key = samaConversationKey(conversation)
+                    if (key.isNotBlank()) {
+                        assignments.put(JSONObject().put("participants", key)
+                            .put("categoryId", conversation.samaCategoryId))
+                    }
+                }
+        }
+        document.put("assignments", assignments)
+        return document.toString(2)
+    }
+
+    private fun samaWriteBackup(uri: Uri) {
+        runCatching {
+            val stream = contentResolver.openOutputStream(uri, "wt")
+                ?: error("Cannot open destination")
+            stream.bufferedWriter(Charsets.UTF_8).use { it.write(samaBackupJson()) }
+        }.onSuccess {
+            android.widget.Toast.makeText(this, "تم حفظ نسخة الفئات", android.widget.Toast.LENGTH_SHORT).show()
+        }.onFailure {
+            android.widget.Toast.makeText(this, "فشل الحفظ: " + it.message, android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun samaReadBackup(uri: Uri) {
+        runCatching {
+            val json = contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)
+                ?.use { reader -> reader.readText() } ?: error("Cannot read backup")
+            require(json.length < 3_000_000) { "Backup too large" }
+            val document = JSONObject(json)
+            require(document.getString("format") == "sama-quik-categories" &&
+                document.getInt("version") == 1) { "Unsupported backup format" }
+            val list = document.getJSONArray("categories")
+            require(list.length() <= 300) { "Too many categories" }
+            val categories = (0 until list.length()).map { index ->
+                val entry = list.getJSONObject(index)
+                val id = entry.getLong("id")
+                val name = entry.getString("name").trim()
+                require(id > 0L && name.isNotBlank() && name.length <= 80) {
+                    "Invalid category"
+                }
+                id to name
+            }
+            require(categories.map { it.first }.distinct().size == categories.size) {
+                "Duplicate category IDs"
+            }
+            val allowed = categories.map { it.first }.toSet()
+            val assignmentArray = document.getJSONArray("assignments")
+            require(assignmentArray.length() <= 50000) { "Too many assignments" }
+            val assignments = mutableMapOf<String, Long>()
+            for (index in 0 until assignmentArray.length()) {
+                val item = assignmentArray.getJSONObject(index)
+                val key = item.getString("participants")
+                val category = item.getLong("categoryId")
+                require(key.isNotBlank() && key.length <= 1500 && category in allowed) {
+                    "Invalid assignment"
+                }
+                assignments[key] = category
+            }
+            Pair(categories, assignments)
+        }.onSuccess { (categories, assignments) ->
+            AlertDialog.Builder(this)
+                .setTitle("استعادة الفئات")
+                .setMessage("سيتم استبدال أسماء الفئات وتوزيع المحادثات الحالية. لن تُحذف أي رسالة. هل تريد المتابعة؟")
+                .setNegativeButton("إلغاء", null)
+                .setPositiveButton("استعادة") { _, _ ->
+                    runCatching {
+                        Realm.getDefaultInstance().use { realm ->
+                            realm.executeTransaction {
+                                // Reset assigned categories so imported state is authoritative.
+                                val conversations = realm.where(Conversation::class.java).findAll()
+                                conversations.forEach { conversation ->
+                                    conversation.samaCategoryId =
+                                        assignments[samaConversationKey(conversation)] ?: 0L
+                                }
+                            }
+                        }
+                        samaSaveCategories(categories)
+                        samaSelectedCategoryId = 0L
+                        samaRefreshChips()
+                        conversationsAdapter.updateData(samaVisibleConversations(samaCurrentInbox))
+                    }.onSuccess {
+                        android.widget.Toast.makeText(this, "تمت استعادة الفئات", android.widget.Toast.LENGTH_SHORT).show()
+                    }.onFailure {
+                        android.widget.Toast.makeText(this, "فشلت الاستعادة: " + it.message, android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }.show()
+        }.onFailure {
+            android.widget.Toast.makeText(this, "ملف غير صالح: " + it.message, android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode != android.app.Activity.RESULT_OK) return
+        val uri = data?.data ?: return
+        when (requestCode) {
+            samaExportRequest -> samaWriteBackup(uri)
+            samaImportRequest -> samaReadBackup(uri)
+        }
+    }''')
+patch(main, '''            it.add(Menu.NONE, samaMoveMenuId, Menu.NONE, "نقل إلى فئة")
+                .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)''',
+      '''            it.add(Menu.NONE, samaMoveMenuId, Menu.NONE, "نقل إلى فئة")
+                .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
+            it.add(Menu.NONE, samaBackupMenuId, Menu.NONE, "نسخ الفئات احتياطيًا")
+                .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
+            it.add(Menu.NONE, samaRestoreMenuId, Menu.NONE, "استعادة الفئات")
+                .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)''')
+patch(main, '''        if (item.itemId == samaMoveMenuId) {
+            samaMoveSelected()
+            return true
+        }''',
+      '''        if (item.itemId == samaMoveMenuId) {
+            samaMoveSelected()
+            return true
+        }
+        if (item.itemId == samaBackupMenuId) {
+            samaExportCategories()
+            return true
+        }
+        if (item.itemId == samaRestoreMenuId) {
+            samaImportCategories()
+            return true
+        }''')
 
 print("Sama QUIK base patch applied successfully. Original QUIK SMS receive engine remains unchanged.")
